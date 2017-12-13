@@ -187,7 +187,7 @@ int Console::_eval(const std::string& input) {
 
   // If query is not complete(/valid), and the last character is not a semicolon, enter/continue multiline
   _multiline_input += input;
-  _multiline_input += ' ';
+  _multiline_input += '\n';
   return ReturnCode::Multiline;
 }
 
