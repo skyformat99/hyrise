@@ -98,6 +98,8 @@ class AbstractLQPNode : public std::enable_shared_from_this<AbstractLQPNode>, pr
    */
   std::vector<std::shared_ptr<AbstractLQPNode>> parents() const;
 
+  size_t num_parents() const;
+
   void remove_parent(const std::shared_ptr<AbstractLQPNode>& parent);
   void clear_parents();
 

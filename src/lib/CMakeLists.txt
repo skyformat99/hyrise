@@ -150,6 +150,10 @@ set(
     base_expression.hpp
     operators/operator_expression.cpp
     operators/operator_expression.hpp
+    optimizer/join_graph.cpp
+    optimizer/join_graph.hpp
+    optimizer/join_graph_builder.cpp
+    optimizer/join_graph_builder.hpp
     optimizer/optimizer.cpp
     optimizer/optimizer.hpp
     optimizer/strategy/abstract_rule.cpp
