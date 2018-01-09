@@ -29,7 +29,7 @@ template <typename T>
 ArithmeticColumnGenerator<T>::ArithmeticColumnGenerator(PolymorphicAllocator<size_t> alloc)
     : _data_type{data_type_from_type<T>()},
       _alloc{alloc},
-      _row_count{4'000'000} {}
+      _row_count{40'000'000} {}
 
 template <typename T>
 void ArithmeticColumnGenerator<T>::set_row_count(const uint32_t row_count) {
@@ -37,7 +37,7 @@ void ArithmeticColumnGenerator<T>::set_row_count(const uint32_t row_count) {
 }
 
 template <typename T>
-std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::uniformly_distributed_column(const T min, const T max) {
+std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::uniformly_distributed_column(const T min, const T max) const {
   auto values = pmr_concurrent_vector<T>(_row_count, _alloc);
 
   std::mt19937 gen{};
@@ -51,7 +51,7 @@ std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::uniformly_distribu
 }
 
 template <typename T>
-std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::normally_distributed_column(const T mean, const T std_dev, std::optional<OutlierParams> outlier_params) {
+std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::normally_distributed_column(const T mean, const T std_dev, std::optional<OutlierParams> outlier_params) const {
   auto values = pmr_concurrent_vector<T>(_row_count, _alloc);
 
   std::mt19937 gen{};
@@ -78,7 +78,7 @@ std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::normally_distribut
 }
 
 template <typename T>
-std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::column_from_values(pmr_concurrent_vector<T> values) {
+std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::column_from_values(pmr_concurrent_vector<T> values) const {
   return std::allocate_shared<ValueColumn<T>>(_alloc, std::move(values));
 }
 

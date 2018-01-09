@@ -53,3 +53,11 @@ target_link_libraries(
     hyrise
     hyriseBenchmarkLib
 )
+
+# Configure hyriseEncodedColumnBenchmark
+add_executable(hyriseEncodedColumnBenchmark encoded_column_benchmark.cpp)
+target_link_libraries(
+    hyriseEncodedColumnBenchmark
+    hyrise
+    hyriseBenchmarkLib
+)
