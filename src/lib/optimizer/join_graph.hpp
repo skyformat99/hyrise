@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "logical_query_plan/abstract_lqp_node.hpp"
+#include "logical_query_plan/lqp_predicate.hpp"
 #include "logical_query_plan/predicate_node.hpp"
 #include "logical_query_plan/join_node.hpp"
 #include "types.hpp"
@@ -21,14 +22,6 @@ struct JoinVertex;
  * A connection between two JoinGraph-Vertices.
  */
 struct JoinPredicate final {
-  /**
-   * Construct NATURAL or self join edge
-   */
-  JoinPredicate(const JoinMode join_mode);
-
-  /**
-   * Construct a predicated JoinEdge
-   */
   JoinPredicate(JoinMode join_mode, const JoinColumnOrigins& join_column_origins, ScanType scan_type);
 
   const JoinMode join_mode;
@@ -36,37 +29,20 @@ struct JoinPredicate final {
   const std::optional<const ScanType> scan_type;
 };
 
-using JoinPredicates = std::vector<JoinPredicate>;
-
-/**
- * Predicate on a single node. value2 will only be engaged, if scan_type is ScanType::Between.
- */
-struct JoinVertexPredicate final {
-  JoinVertexPredicate(const LQPColumnOrigin& column_origin,
-                      const ScanType scan_type,
-                      const AllParameterVariant& value,
-                      const std::optional<AllTypeVariant>& value2 = std::nullopt);
-
-  const LQPColumnOrigin column_origin;
-  const ScanType scan_type;
-  const AllParameterVariant value;
-  const std::optional<const AllTypeVariant> value2;
-};
-
 struct JoinVertex final {
   explicit JoinVertex(const std::shared_ptr<const AbstractLQPNode>& node);
 
   std::shared_ptr<const AbstractLQPNode> node;
-  std::vector<JoinVertexPredicate> predicates;
+  std::vector<LQPPredicate> predicates;
 };
 
+using JoinVertexPair = std::pair<std::shared_ptr<JoinVertex>, std::shared_ptr<JoinVertex>>;
+
 struct JoinEdge final {
-  using Vertices = std::pair<std::shared_ptr<JoinVertex>, std::shared_ptr<JoinVertex>>;
+  JoinEdge(const JoinVertexPair& vertices);
 
-  JoinEdge(Vertices vertices, JoinPredicates predicates);
-
-  Vertices vertices;
-  JoinPredicates predicates;
+  JoinVertexPair vertices;
+  std::vector<JoinPredicate> predicates;
 };
 
 /**
