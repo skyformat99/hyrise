@@ -45,6 +45,8 @@ set(
     logical_query_plan/logical_plan_root_node.hpp
     logical_query_plan/lqp_expression.cpp
     logical_query_plan/lqp_expression.hpp
+    logical_query_plan/lqp_predicate.cpp
+    logical_query_plan/lqp_predicate.hpp
     logical_query_plan/lqp_translator.cpp
     logical_query_plan/lqp_translator.hpp
     logical_query_plan/mock_node.cpp

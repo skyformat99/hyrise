@@ -17,40 +17,35 @@ class JoinNode;
 class PredcicateNode;
 struct JoinVertex;
 
-using JoinLQPNodes = std::pair<std::shared_ptr<AbstractLQPNode>, std::shared_ptr<AbstractLQPNode>>;
-
 /**
  * A connection between two JoinGraph-Vertices.
  */
-struct LQPJoinPredicate final {
+struct JoinPredicate final {
   /**
    * Construct NATURAL or self join edge
    */
-  LQPJoinPredicate(const JoinLQPNodes& join_node, const JoinMode join_mode);
+  JoinPredicate(const JoinMode join_mode);
 
   /**
-   * Construct a predicates JoinEdge
+   * Construct a predicated JoinEdge
    */
-  LQPJoinPredicate(const JoinColumnOrigins& join_column_origins, JoinMode join_mode, ScanType scan_type);
+  JoinPredicate(JoinMode join_mode, const JoinColumnOrigins& join_column_origins, ScanType scan_type);
 
-  std::string description(DescriptionMode description_mode = DescriptionMode::SingleLine) const;
-
-  const JoinLQPNodes join_nodes;
   const JoinMode join_mode;
   const std::optional<const JoinColumnOrigins> join_column_origins;
   const std::optional<const ScanType> scan_type;
 };
 
+using JoinPredicates = std::vector<JoinPredicate>;
+
 /**
  * Predicate on a single node. value2 will only be engaged, if scan_type is ScanType::Between.
  */
-struct LQPNodePredicate final {
-  LQPNodePredicate(const LQPColumnOrigin& column_origin,
-                   const ScanType scan_type,
-                   const AllParameterVariant& value,
-                   const std::optional<AllTypeVariant>& value2);
-
-  std::string description() const;
+struct JoinVertexPredicate final {
+  JoinVertexPredicate(const LQPColumnOrigin& column_origin,
+                      const ScanType scan_type,
+                      const AllParameterVariant& value,
+                      const std::optional<AllTypeVariant>& value2 = std::nullopt);
 
   const LQPColumnOrigin column_origin;
   const ScanType scan_type;
@@ -58,13 +53,20 @@ struct LQPNodePredicate final {
   const std::optional<const AllTypeVariant> value2;
 };
 
-struct JoinVertex {
-  explicit JoinVertex(const std::shared_ptr<AbstractLQPNode>& node);
+struct JoinVertex final {
+  explicit JoinVertex(const std::shared_ptr<const AbstractLQPNode>& node);
 
-  std::string description() const;
+  std::shared_ptr<const AbstractLQPNode> node;
+  std::vector<JoinVertexPredicate> predicates;
+};
 
-  std::shared_ptr<AbstractLQPNode> node;
-  std::vector<LQPNodePredicate> predicates;
+struct JoinEdge final {
+  using Vertices = std::pair<std::shared_ptr<JoinVertex>, std::shared_ptr<JoinVertex>>;
+
+  JoinEdge(Vertices vertices, JoinPredicates predicates);
+
+  Vertices vertices;
+  JoinPredicates predicates;
 };
 
 /**
@@ -75,21 +77,14 @@ struct JoinVertex {
  *
  * See the tests for examples.
  */
-class JoinGraph final {
+struct JoinGraph final {
  public:
-  using Vertices = std::vector<JoinVertex>;
-  using JoinPredicates = std::vector<LQPJoinPredicate>;
+  using Vertices = std::vector<std::shared_ptr<JoinVertex>>;
+  using Edges = std::vector<JoinEdge>;
 
-  JoinGraph() = default;
-  JoinGraph(Vertices vertices, JoinPredicates predicates);
+  JoinGraph(Vertices vertices, Edges edges);
 
-  const Vertices& vertices() const;
-  const JoinPredicates& join_predicates() const;
-
-  void print(std::ostream& out = std::cout) const;
-
- private:
-  Vertices _vertices;
-  JoinPredicates _predicates;
+  Vertices vertices;
+  Edges edges;
 };
 } // namespace opossum
