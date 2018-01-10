@@ -29,7 +29,7 @@ template <typename T>
 ArithmeticColumnGenerator<T>::ArithmeticColumnGenerator(PolymorphicAllocator<size_t> alloc)
     : _data_type{data_type_from_type<T>()},
       _alloc{alloc},
-      _row_count{40'000'000} {}
+      _row_count{1'000'000} {}
 
 template <typename T>
 void ArithmeticColumnGenerator<T>::set_row_count(const uint32_t row_count) {

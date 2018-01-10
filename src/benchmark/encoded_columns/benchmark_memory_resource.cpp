@@ -9,13 +9,13 @@ BenchmarkMemoryResource::BenchmarkMemoryResource(int node_id)
 
 void* BenchmarkMemoryResource::do_allocate(std::size_t bytes, std::size_t alignment) {
   _currently_allocated += bytes;
-  std::cout << "Currently Allocated (+" << bytes << "): " << _currently_allocated << std::endl;
+  // std::cout << "Currently Allocated (+" << bytes << "): " << _currently_allocated << std::endl;
   return NUMAMemoryResource::do_allocate(bytes, alignment);
 }
 
 void BenchmarkMemoryResource::do_deallocate(void* p, std::size_t bytes, std::size_t alignment) {
   _currently_allocated -= bytes;
-  std::cout << "Currently Allocated (-" << bytes << "): " << _currently_allocated << std::endl;
+  // std::cout << "Currently Allocated (-" << bytes << "): " << _currently_allocated << std::endl;
   NUMAMemoryResource::do_deallocate(p, bytes, alignment);
 }
 

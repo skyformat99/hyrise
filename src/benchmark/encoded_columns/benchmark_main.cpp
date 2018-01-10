@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <cmath>
 
 #include "json.hpp"
 
@@ -19,7 +20,7 @@
 #include "benchmark_utilities/arithmetic_column_generator.hpp"
 
 #include "benchmark_memory_resource.hpp"
-#include "clear_cache.hpp"
+#include "benchmark_state.hpp"
 
 namespace opossum {
 
@@ -37,92 +38,22 @@ std::string to_string(EncodingType encoding_type) {
 
 }  // namespace
 
-using Clock = std::chrono::high_resolution_clock;
-using Duration = Clock::duration;
-using TimePoint = Clock::time_point;
-
-class Benchmark {
- public:
-  enum class State { NotStarted, Running, Over };
-
- public:
-
-  Benchmark(const size_t max_num_iterations, const Duration max_duration)
-      : _max_num_iterations{max_num_iterations}, _max_duration{max_duration}, _state{State::NotStarted}, _num_iterations{0u} {}
-
-  bool keep_running() {
-    switch (_state) {
-      case State::NotStarted:
-        _init();
-        return true;
-      case State::Over:
-        return false;
-      default: {}
-    }
-
-    if (_num_iterations >= _max_num_iterations) {
-      _end = Clock::now();
-      _state = State::Over;
-      return false;
-    }
-
-    _end = Clock::now();
-    const auto duration = _end - _begin;
-    if (duration >= _max_duration) {
-      _state = State::Over;
-      return false;
-    }
-
-    _num_iterations++;
-
-    return true;
-  }
-
-  template <typename Functor>
-  void measure(Functor functor) {
-    clear_cache();
-
-    auto begin = Clock::now();
-    functor();
-    auto end = Clock::now();
-    _results.push_back(end - begin);
-  }
-
-  std::vector<Duration> results() const { return _results; }
-  size_t num_iterations() const { return _num_iterations; }
-
- private:
-  void _init() {
-    _state = State::Running;
-    _num_iterations = 1u;
-    _begin = Clock::now();
-    _results = std::vector<Duration>();
-    _results.reserve(_max_num_iterations);
-  }
-
- private:
-  const size_t _max_num_iterations;
-  const Duration _max_duration;
-
-  State _state;
-  size_t _num_iterations;
-  TimePoint _begin;
-  TimePoint _end;
-
-  std::vector<Duration> _results;
-};
-
 class ColumnCompressionBenchmark {
  public:
-  ColumnCompressionBenchmark() {};
+   static const auto row_count = 1'000'000;
+
+ public:
+  ColumnCompressionBenchmark() = default;
 
  private:
   auto _distribution_generators() {
     static const auto numa_node = 1;
+
     _memory_resource = std::make_unique<BenchmarkMemoryResource>(numa_node);
     auto alloc = PolymorphicAllocator<size_t>{_memory_resource.get()};
 
     auto generator = benchmark_utilities::ArithmeticColumnGenerator<int32_t>{alloc};
+    generator.set_row_count(row_count);
 
     using ValueColumnPtr = std::shared_ptr<ValueColumn<int32_t>>;
     auto dist_generators = std::vector<std::pair<std::string, std::function<ValueColumnPtr()>>>{
@@ -146,7 +77,7 @@ class ColumnCompressionBenchmark {
 
       auto results_in_ms = std::vector<uint32_t>(result_set.results.size());
       std::transform(results.cbegin(), results.cend(), results_in_ms.begin(),
-                     [](auto x) { return 40'000 / std::chrono::duration_cast<std::chrono::milliseconds>(x).count(); });
+                     [](auto x) { return std::round(static_cast<double>(row_count) / std::chrono::duration_cast<std::chrono::microseconds>(x).count()); });
 
       nlohmann::json benchmark{
         {"distribution", result_set.distribution},
@@ -168,7 +99,8 @@ class ColumnCompressionBenchmark {
 
     nlohmann::json context{
         {"date", timestamp_stream.str()},
-        {"build_type", IS_DEBUG ? "debug" : "release"}};
+        {"build_type", IS_DEBUG ? "debug" : "release"},
+        {"row_count", row_count}};
 
     nlohmann::json report{{"context", context}, {"benchmarks", benchmarks}};
 
@@ -187,9 +119,9 @@ class ColumnCompressionBenchmark {
       const auto allocated_after = _memory_resource->currently_allocated();
       const auto allocated_memory = allocated_after - allocated_before;
 
-      auto benchmark = Benchmark{max_num_iterations, max_duration};
-      while (benchmark.keep_running()) {
-        benchmark.measure([&]() {
+      auto benchmark_state = BenchmarkState{max_num_iterations, max_duration};
+      while (benchmark_state.keep_running()) {
+        benchmark_state.measure([&]() {
           auto iterable = create_iterable_from_column(*value_column);
 
           auto sum = 0;
@@ -199,8 +131,8 @@ class ColumnCompressionBenchmark {
         });
       }
 
-      auto results = benchmark.results();
-      auto num_iterations = benchmark.num_iterations();
+      auto results = benchmark_state.results();
+      auto num_iterations = benchmark_state.num_iterations();
       _result_sets.push_back({name, EncodingType::Invalid, num_iterations, allocated_memory, std::move(results)});
 
       for (auto encoding_type : _encoding_types()) {
@@ -214,11 +146,11 @@ class ColumnCompressionBenchmark {
         const auto allocated_after = _memory_resource->currently_allocated();
         const auto allocated_memory = allocated_after - allocated_before;
 
-        auto benchmark = Benchmark{max_num_iterations, max_duration};
+        auto benchmark_state = BenchmarkState{max_num_iterations, max_duration};
 
         resolve_encoded_column_type<int32_t>(*encoded_column, [&](auto& typed_column) {
-          while (benchmark.keep_running()) {
-            benchmark.measure([&]() {
+          while (benchmark_state.keep_running()) {
+            benchmark_state.measure([&]() {
               auto iterable = create_iterable_from_column(typed_column);
 
               auto sum = 0;
@@ -229,8 +161,8 @@ class ColumnCompressionBenchmark {
           }
         });
 
-        auto results = benchmark.results();
-        auto num_iterations = benchmark.num_iterations();
+        auto results = benchmark_state.results();
+        auto num_iterations = benchmark_state.num_iterations();
 
         _result_sets.push_back({name, encoding_type, num_iterations, allocated_memory, std::move(results)});
       }
