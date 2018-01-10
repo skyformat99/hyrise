@@ -59,8 +59,10 @@ add_executable(hyriseEncodedColumnBenchmark
     encoded_columns/benchmark_main.cpp
     encoded_columns/benchmark_memory_resource.cpp
     encoded_columns/benchmark_memory_resource.hpp
-
+    encoded_columns/clear_cache.cpp
+    encoded_columns/clear_cache.hpp
 )
+
 target_link_libraries(
     hyriseEncodedColumnBenchmark
     hyrise

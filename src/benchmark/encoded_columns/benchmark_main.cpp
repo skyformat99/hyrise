@@ -19,6 +19,7 @@
 #include "benchmark_utilities/arithmetic_column_generator.hpp"
 
 #include "benchmark_memory_resource.hpp"
+#include "clear_cache.hpp"
 
 namespace opossum {
 
@@ -79,7 +80,7 @@ class Benchmark {
 
   template <typename Functor>
   void measure(Functor functor) {
-    _clear_cache();
+    clear_cache();
 
     auto begin = Clock::now();
     functor();
@@ -97,16 +98,6 @@ class Benchmark {
     _begin = Clock::now();
     _results = std::vector<Duration>();
     _results.reserve(_max_num_iterations);
-  }
-
-  void _clear_cache() {
-    static const auto l3_cache_size_in_byte = 500 * 1024 * 1024;
-    for (auto i = 0u; i < 4u; ++i) {
-      auto clear = std::vector<int>();
-      clear.resize(l3_cache_size_in_byte / sizeof(int), 13);
-      for (auto& x : clear) { x += 1; }
-      clear.resize(0);
-    }
   }
 
  private:
