@@ -55,7 +55,12 @@ target_link_libraries(
 )
 
 # Configure hyriseEncodedColumnBenchmark
-add_executable(hyriseEncodedColumnBenchmark encoded_column_benchmark.cpp)
+add_executable(hyriseEncodedColumnBenchmark
+    encoded_columns/benchmark_main.cpp
+    encoded_columns/benchmark_memory_resource.cpp
+    encoded_columns/benchmark_memory_resource.hpp
+
+)
 target_link_libraries(
     hyriseEncodedColumnBenchmark
     hyrise
