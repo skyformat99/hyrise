@@ -94,7 +94,7 @@ class Benchmark {
  private:
   void _init() {
     _state = State::Running;
-    _num_iterations = 0u;
+    _num_iterations = 1u;
     _begin = Clock::now();
     _results = std::vector<Duration>();
     _results.reserve(_max_num_iterations);
