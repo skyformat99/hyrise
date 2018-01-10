@@ -13,20 +13,26 @@ JoinGraph JoinGraphBuilder::build_join_graph(const std::shared_ptr<const Abstrac
    * Generate JoinEdges
    */
 
-  for (const auto& predicate : _column_predicates) {
-    const auto vertex_left = _find_vertex_for_column_origin(predicate.join_column_origins->first);
-    const auto vertex_right = _find_vertex_for_column_origin(predicate.join_column_origins->second);
+  for (const auto& predicate : _predicates) {
+    if (predicate.is_column_predicate()) {
+      auto vertex_left = _get_vertex_for_column_origin(predicate.column_origin);
+      auto vertex_right = _get_vertex_for_column_origin(boost::get<LQPColumnOrigin>(predicate.value));
 
-    if (vertex_left == vertex_right) {
-      vertex_left->predicates.emplace_back(predicate);
-    } else {
-      auto& edge = _get_or_create_edge(vertex_left, vertex_right);
-      edge.predicates.emplace_back(predicate);
+      if (vertex_left == vertex_right) {
+        vertex_left->predicates.emplace_back(predicate);
+      } else {
+        auto& edge = _get_or_create_edge({vertex_left, vertex_right});
+        edge.predicates.emplace_back(predicate);
+      }
+    } else if (predicate.is_value_predicate()) {
+      auto vertex = _get_vertex_for_column_origin(predicate.column_origin);
+      vertex->predicates.emplace_back(predicate);
     }
   }
 
+  // Just make sure for every CrossJoin there is a JoinEdge
   for (const auto& cross_join : _cross_joins) {
-    get_or_create_edge(cross_join.first, cross_join.second);
+    _get_or_create_edge({cross_join.first, cross_join.second});
   }
 
   return {std::move(_vertices), std::move(_edges)};
@@ -38,7 +44,7 @@ void JoinGraphBuilder::_traverse(const std::shared_ptr<const AbstractLQPNode>& n
    * are nullptr.
    */
   if (!node) {
-    return {};
+    return;
   }
 
   std::vector<std::shared_ptr<JoinVertex>> vertices;
@@ -53,9 +59,20 @@ void JoinGraphBuilder::_traverse(const std::shared_ptr<const AbstractLQPNode>& n
     const auto join_node = std::static_pointer_cast<JoinNode>(node);
 
     if (join_node->join_mode() == JoinMode::Inner) {
-      _traverse_inner_join_node(join_node);
+      _predicates.emplace_back(join_node->join_column_origins().first, join_node->scan_type(), join_node->join_column_origins().second);
     } else if (join_node->join_mode() == JoinMode::Cross) {
-      _traverse_cross_join_node(join_node);
+      /**
+       * Create a cross join from any one vertex in the left subtree with any one vertex in the right subtree
+       */
+
+      _traverse(node->left_child(), false);
+      const auto left_vertex = _vertices.back();
+      _traverse(node->right_child(), false);
+      const auto right_vertex = _vertices.back();
+
+      _cross_joins.emplace_back(left_vertex, right_vertex);
+
+      return ; // We already traversed the children
     } else {
       // We're only turning Cross and Inner Joins into JoinPredicates in the JoinGraph right now
       _vertices.emplace_back(node);
@@ -66,71 +83,47 @@ void JoinGraphBuilder::_traverse(const std::shared_ptr<const AbstractLQPNode>& n
 
     // A non-column-to-column Predicate becomes a vertex
     if (is_lqp_column_origin(predicate_node->value())) {
-      _traverse_value_predicate_node(predicate_node);
+      _predicates.emplace_back(predicate_node->column_origin(), predicate_node->scan_type(), predicate_node->value());
     } else {
-      _traverse_column_predicate_node(predicate_node);
+      _predicates.emplace_back(predicate_node->column_origin(), predicate_node->scan_type(), predicate_node->value(), predicate_node->value2());
     }
   } else {
     // Everything that is not a Join or a Predicate becomes a vertex
     _vertices.emplace_back(node);
     return;
   }
-}
-
-void JoinGraphBuilder::_traverse_children(const std::shared_ptr<const AbstractLQPNode>& node) {
-  _traverse(node->left_child(), false);
-  _traverse(node->right_child(), false);
-}
-
-void JoinGraphBuilder::_traverse_inner_join_node(const std::shared_ptr<const JoinNode>& node) {
-  _column_predicates.emplace_back(JoinMode::Inner, node->join_column_origins(), node->scan_type());
-}
-
-void JoinGraphBuilder::_traverse_cross_join_node(const std::shared_ptr<const JoinNode>& node) {
-  /**
-   * Create a cross join from any one vertex in the left subtree with any one vertex in the right subtree
-   */
 
   _traverse(node->left_child(), false);
-  const auto left_vertex = _vertices.back();
   _traverse(node->right_child(), false);
-  const auto right_vertex = _vertices.back();
-
-  _cross_joins.emplace_back(left_vertex, right_vertex);
-}
-
-void JoinGraphBuilder::_traverse_column_predicate_node(const std::shared_ptr<const PredicateNode>& node) {
-  /**
-   * Turn a predicate on two columns into a JoinPredicate. Detection whether this might be a Predicate on a single
-   * vertex happens later.
-   */
-
-  const auto column_origins = JoinColumnOrigins{
-    node->column_origin(), boost::get<LQPColumnOrigin>(node->value())
-  };
-
-  _column_predicates.emplace_back(JoinMode::Inner, column_origins, node->scan_type());
-}
-
-void JoinGraphBuilder::_traverse_value_predicate_node(const std::shared_ptr<PredicateNode>& node) {
-  _value_predicates.emplace_back(node->column_origin(), node->scan_type(), node->value(), node->value2());
 }
 
 JoinEdge& JoinGraphBuilder::_get_or_create_edge(const JoinVertexPair& vertices) {
-  auto iter = _edge_ids_by_vertex.find(vertices.first);
-  if (iter == _edge_ids_by_vertex.end()) {
-    iter = _edge_ids_by_vertex.
+  auto ordered_vertices = vertices;
+  if (ordered_vertices.first > ordered_vertices.second) {
+    std::swap(ordered_vertices.first, ordered_vertices.second);
   }
 
-  auto iter = std::find_if(_edges.begin(), _edges.end(), [&] (const auto& edge) {
-    return (edge.vertices.first == vertices.first && edge.vertices.second == vertices.second) && ;
-  });
+  auto iter = _edge_idx_by_vertices.find(ordered_vertices);
+  if (iter == _edge_idx_by_vertices.end()) {
+    iter = _edge_idx_by_vertices.emplace(ordered_vertices, _edges.size()).first;
+    _edges.emplace_back(ordered_vertices);
+  }
 
-
+  return _edges[iter->second];
 }
 
-std::shared_ptr<JoinVertex> JoinGraphBuilder::_find_vertex_for_column_origin(const LQPColumnOrigin& column_origin) const {
+std::shared_ptr<JoinVertex> JoinGraphBuilder::_get_vertex_for_column_origin(const LQPColumnOrigin &column_origin) const {
+  auto iter = _vertex_of_node.find(column_origin.node());
 
+  if (iter == _vertex_of_node.end()) {
+    auto iter2 = std::find_if(_vertices.begin(), _vertices.end(), [&](const auto& vertex) {
+      return vertex->find_output_column_id_by_column_origin(column_origin).has_value();
+    });
+    Assert(iter2 != _vertices.end(), "Should have found ColumnOrigin. Bug!");
+    iter = _vertex_of_node.emplace(column_origin.node(), *iter2).first;
+  }
+
+  return iter->second;
 }
 
 }

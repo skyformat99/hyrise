@@ -13,6 +13,9 @@ struct LQPPredicate final {
                       const AllParameterVariant& value,
                       const std::optional<AllTypeVariant>& value2 = std::nullopt);
 
+  bool is_column_predicate() const;
+  bool is_value_predicate() const;
+
   const LQPColumnOrigin column_origin;
   const ScanType scan_type;
   const AllParameterVariant value;
