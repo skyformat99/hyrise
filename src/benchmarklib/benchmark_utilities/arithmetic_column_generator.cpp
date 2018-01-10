@@ -2,6 +2,7 @@
 
 #include <random>
 #include <memory>
+#include <algorithm>
 
 #include "resolve_type.hpp"
 #include "storage/value_column.hpp"
@@ -29,11 +30,17 @@ template <typename T>
 ArithmeticColumnGenerator<T>::ArithmeticColumnGenerator(PolymorphicAllocator<size_t> alloc)
     : _data_type{data_type_from_type<T>()},
       _alloc{alloc},
-      _row_count{1'000'000} {}
+      _row_count{1'000'000},
+      _sorted{false} {}
 
 template <typename T>
 void ArithmeticColumnGenerator<T>::set_row_count(const uint32_t row_count) {
   _row_count = row_count;
+}
+
+template <typename T>
+void ArithmeticColumnGenerator<T>::set_sorted(bool sorted) {
+  _sorted = sorted;
 }
 
 template <typename T>
@@ -45,6 +52,10 @@ std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::uniformly_distribu
 
   for (auto i = 0u; i < _row_count; ++i) {
     values[i] = dist(gen);
+  }
+
+  if (_sorted) {
+    std::sort(values.begin(), values.end());
   }
 
   return column_from_values(std::move(values));
@@ -72,6 +83,10 @@ std::shared_ptr<ValueColumn<T>> ArithmeticColumnGenerator<T>::normally_distribut
         values[i] = dist(gen);
       }
     }
+  }
+
+  if (_sorted) {
+    std::sort(values.begin(), values.end());
   }
 
   return column_from_values(std::move(values));

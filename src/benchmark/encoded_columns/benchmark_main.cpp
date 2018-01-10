@@ -38,28 +38,29 @@ std::string to_string(EncodingType encoding_type) {
 
 }  // namespace
 
-class ColumnCompressionBenchmark {
+class SingleDistributionBenchmark {
  public:
    static const auto row_count = 1'000'000;
+   static const auto sorted = true;
 
  public:
-  ColumnCompressionBenchmark() = default;
+  SingleDistributionBenchmark() {
+    static const auto numa_node = 1;
+    _memory_resource = std::make_unique<BenchmarkMemoryResource>(numa_node);
+  }
 
  private:
-  auto _distribution_generators() {
-    static const auto numa_node = 1;
-
-    _memory_resource = std::make_unique<BenchmarkMemoryResource>(numa_node);
+  auto _distribution_generator() const {
     auto alloc = PolymorphicAllocator<size_t>{_memory_resource.get()};
 
-    auto generator = benchmark_utilities::ArithmeticColumnGenerator<int32_t>{alloc};
-    generator.set_row_count(row_count);
+    auto column_generator = benchmark_utilities::ArithmeticColumnGenerator<int32_t>{alloc};
+    column_generator.set_row_count(row_count);
+    column_generator.set_sorted(sorted);
+
+    auto generator = [cg = column_generator]() { return cg.uniformly_distributed_column(0, 10'000); };
 
     using ValueColumnPtr = std::shared_ptr<ValueColumn<int32_t>>;
-    auto dist_generators = std::vector<std::pair<std::string, std::function<ValueColumnPtr()>>>{
-      { "Uniform from 0 to 4.000", [generator]() { return generator.uniformly_distributed_column(0, 4'000); }}};
-
-    return dist_generators;
+    return std::pair<std::string, std::function<ValueColumnPtr()>>{"Uniform from 0 to 10.000", generator};
   }
 
   std::vector<EncodingType> _encoding_types() {
@@ -72,15 +73,11 @@ class ColumnCompressionBenchmark {
     for (const auto& result_set : _result_sets) {
       const auto& results = result_set.results;
 
-      // const auto sum = std::accumulate(result_set.results.cbegin(), result_set.results.cend(), Clock::duration{});
-      // const auto average = sum / result_set.results.size();
-
       auto results_in_ms = std::vector<uint32_t>(result_set.results.size());
       std::transform(results.cbegin(), results.cend(), results_in_ms.begin(),
                      [](auto x) { return std::round(static_cast<double>(row_count) / std::chrono::duration_cast<std::chrono::microseconds>(x).count()); });
 
       nlohmann::json benchmark{
-        {"distribution", result_set.distribution},
         {"encoding_type", to_string(result_set.encoding_type)},
         {"iterations", result_set.num_iterations},
         {"allocated_memory", result_set.allocated_memory},
@@ -97,32 +94,40 @@ class ColumnCompressionBenchmark {
     std::stringstream timestamp_stream;
     timestamp_stream << std::put_time(&local_time, "%Y-%m-%d %H:%M:%S");
 
+    auto [distribution_name, g] = _distribution_generator();
+
     nlohmann::json context{
         {"date", timestamp_stream.str()},
         {"build_type", IS_DEBUG ? "debug" : "release"},
-        {"row_count", row_count}};
+        {"distribution", distribution_name},
+        {"row_count", row_count},
+        {"sorted", sorted}};
 
     nlohmann::json report{{"context", context}, {"benchmarks", benchmarks}};
 
-    auto output_file = std::ofstream("/Users/maxjendruk/Development/hyrise-jupyter/benchmark_results.json");
+    auto output_file = std::ofstream("/Users/maxjendruk/Development/hyrise-jupyter/single_distribution_benchmark.json");
     output_file << std::setw(2) << report << std::endl;
   }
 
- public:
-  void run() {
+  template <typename Functor>
+  auto memory_consumption(Functor functor) {
+    const auto allocated_before = _memory_resource->currently_allocated();
+    auto result = functor();
+    const auto allocated_after = _memory_resource->currently_allocated();
+    const auto allocated_memory = allocated_after - allocated_before;
+    return std::make_pair(std::move(result), allocated_memory);
+  }
+
+  const BenchmarkState benchmark_decompression_with_iterable(const BaseColumn& base_column) {
     static const auto max_num_iterations = 1000u;
-    static const auto max_duration = std::chrono::seconds{10};
+    static const auto max_duration = std::chrono::seconds{20};
 
-    for (auto& [name, generator] : _distribution_generators()) {
-      const auto allocated_before = _memory_resource->currently_allocated();
-      auto value_column = generator();
-      const auto allocated_after = _memory_resource->currently_allocated();
-      const auto allocated_memory = allocated_after - allocated_before;
+    auto benchmark_state = BenchmarkState{max_num_iterations, max_duration};
 
-      auto benchmark_state = BenchmarkState{max_num_iterations, max_duration};
+    resolve_column_type<int32_t>(base_column, [&](auto& typed_column) {
       while (benchmark_state.keep_running()) {
         benchmark_state.measure([&]() {
-          auto iterable = create_iterable_from_column(*value_column);
+          auto iterable = create_iterable_from_column<int32_t>(typed_column);
 
           auto sum = 0;
           iterable.for_each([&](auto value) {
@@ -130,42 +135,40 @@ class ColumnCompressionBenchmark {
           });
         });
       }
+    });
+
+    return benchmark_state;
+  }
+
+ public:
+  void run() {
+    const auto& [name, generator] = _distribution_generator();
+
+    std::cout << "Begin Encoding Type: Unencoded" << std::endl;
+
+    auto [value_column, allocated_memory] = memory_consumption([g = generator]() { return g(); });
+
+    auto benchmark_state = benchmark_decompression_with_iterable(*value_column);
+
+    auto results = benchmark_state.results();
+    auto num_iterations = benchmark_state.num_iterations();
+    _result_sets.push_back({EncodingType::Invalid, num_iterations, allocated_memory, std::move(results)});
+
+    for (auto encoding_type : _encoding_types()) {
+
+      std::cout << "Begin Encoding Type: " << to_string(encoding_type) << std::endl;
+
+      auto encoder = create_encoder(encoding_type);
+
+      auto [encoded_column, allocated_memory] = memory_consumption(
+          [&, vc = value_column]() { return encoder->encode(DataType::Int, vc); });
+
+      auto benchmark_state = benchmark_decompression_with_iterable(*encoded_column);
 
       auto results = benchmark_state.results();
       auto num_iterations = benchmark_state.num_iterations();
-      _result_sets.push_back({name, EncodingType::Invalid, num_iterations, allocated_memory, std::move(results)});
 
-      for (auto encoding_type : _encoding_types()) {
-
-        std::cout << "Begin Encoding Type: " << to_string(encoding_type) << std::endl;
-
-        auto encoder = create_encoder(encoding_type);
-
-        const auto allocated_before = _memory_resource->currently_allocated();
-        auto encoded_column = encoder->encode(DataType::Int, value_column);
-        const auto allocated_after = _memory_resource->currently_allocated();
-        const auto allocated_memory = allocated_after - allocated_before;
-
-        auto benchmark_state = BenchmarkState{max_num_iterations, max_duration};
-
-        resolve_encoded_column_type<int32_t>(*encoded_column, [&](auto& typed_column) {
-          while (benchmark_state.keep_running()) {
-            benchmark_state.measure([&]() {
-              auto iterable = create_iterable_from_column(typed_column);
-
-              auto sum = 0;
-              iterable.for_each([&](auto value) {
-                sum += value.value();
-              });
-            });
-          }
-        });
-
-        auto results = benchmark_state.results();
-        auto num_iterations = benchmark_state.num_iterations();
-
-        _result_sets.push_back({name, encoding_type, num_iterations, allocated_memory, std::move(results)});
-      }
+      _result_sets.push_back({encoding_type, num_iterations, allocated_memory, std::move(results)});
     }
 
     _create_report();
@@ -175,7 +178,6 @@ class ColumnCompressionBenchmark {
   std::unique_ptr<BenchmarkMemoryResource> _memory_resource;
 
   struct MeasurementResultSet{
-    std::string distribution;
     EncodingType encoding_type;
     size_t num_iterations;
     size_t allocated_memory;
@@ -190,7 +192,7 @@ class ColumnCompressionBenchmark {
 
 int main(int argc, char const *argv[])
 {
-  auto benchmark = opossum::ColumnCompressionBenchmark{};
+  auto benchmark = opossum::SingleDistributionBenchmark{};
   benchmark.run();
 
   return 0;

@@ -25,6 +25,7 @@ class ArithmeticColumnGenerator {
   ArithmeticColumnGenerator(opossum::PolymorphicAllocator<size_t> alloc);
 
   void set_row_count(const uint32_t row_count);
+  void set_sorted(bool sorted);
 
   std::shared_ptr<opossum::ValueColumn<T>> uniformly_distributed_column(const T min, const T max) const;
 
@@ -44,6 +45,7 @@ class ArithmeticColumnGenerator {
   const opossum::DataType _data_type;
   const opossum::PolymorphicAllocator<size_t> _alloc;
   uint32_t _row_count;
+  bool _sorted;
 };
 
 }  // benchmark_utilities
