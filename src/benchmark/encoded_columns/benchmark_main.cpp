@@ -146,7 +146,7 @@ class ColumnCompressionBenchmark {
 
       auto results_in_ms = std::vector<uint32_t>(result_set.results.size());
       std::transform(results.cbegin(), results.cend(), results_in_ms.begin(),
-                     [](auto x) { return 40 / std::chrono::duration_cast<std::chrono::milliseconds>(x).count(); });
+                     [](auto x) { return 40'000 / std::chrono::duration_cast<std::chrono::milliseconds>(x).count(); });
 
       nlohmann::json benchmark{
         {"distribution", result_set.distribution},
