@@ -47,14 +47,16 @@ class JoinGraphBuilder final {
   /**
    * @return JoinEdge, might be invalidated by subsequent call
    */
-  JoinEdge& _get_or_create_edge(const JoinVertexPair& vertex_pair);
+  JoinEdge& _get_or_create_edge(const JoinVertexPair& vertices);
 
-  std::shared_ptr<JoinVertex> _find_vertex_for_column_origin(const LQPColumnOrigin& column_origin);
+  std::shared_ptr<JoinVertex> _find_vertex_for_column_origin(const LQPColumnOrigin& column_origin) const;
 
   JoinGraph::Vertices _vertices;
   std::vector<LQPPredicate> _predicates;
   std::vector<JoinVertexPair> _cross_joins;
   std::vector<JoinEdge> _edges;
+
+  std::unordered_map<std::shared_ptr<JoinVertex>, size_t> _edge_ids_by_vertex;
 };
 
 }

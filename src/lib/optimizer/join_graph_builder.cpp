@@ -116,4 +116,21 @@ void JoinGraphBuilder::_traverse_value_predicate_node(const std::shared_ptr<Pred
   _value_predicates.emplace_back(node->column_origin(), node->scan_type(), node->value(), node->value2());
 }
 
+JoinEdge& JoinGraphBuilder::_get_or_create_edge(const JoinVertexPair& vertices) {
+  auto iter = _edge_ids_by_vertex.find(vertices.first);
+  if (iter == _edge_ids_by_vertex.end()) {
+    iter = _edge_ids_by_vertex.
+  }
+
+  auto iter = std::find_if(_edges.begin(), _edges.end(), [&] (const auto& edge) {
+    return (edge.vertices.first == vertices.first && edge.vertices.second == vertices.second) && ;
+  });
+
+
+}
+
+std::shared_ptr<JoinVertex> JoinGraphBuilder::_find_vertex_for_column_origin(const LQPColumnOrigin& column_origin) const {
+
+}
+
 }
