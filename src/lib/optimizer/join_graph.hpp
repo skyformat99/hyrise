@@ -2,6 +2,7 @@
 
 #include <limits>
 #include <memory>
+#include <optional>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -24,13 +25,19 @@ struct JoinVertex;
 struct JoinPredicate final {
   JoinPredicate(JoinMode join_mode, const JoinColumnOrigins& join_column_origins, ScanType scan_type);
 
+  void print(std::ostream& stream = std::cout) const;
+
+  bool operator==(const JoinPredicate& rhs) const;
+
   const JoinMode join_mode;
-  const std::optional<const JoinColumnOrigins> join_column_origins;
-  const std::optional<const ScanType> scan_type;
+  const JoinColumnOrigins join_column_origins;
+  const ScanType scan_type;
 };
 
 struct JoinVertex final {
   explicit JoinVertex(const std::shared_ptr<const AbstractLQPNode>& node);
+
+  void print(std::ostream& stream = std::cout) const;
 
   std::shared_ptr<const AbstractLQPNode> node;
   std::vector<LQPPredicate> predicates;
@@ -39,7 +46,9 @@ struct JoinVertex final {
 using JoinVertexPair = std::pair<std::shared_ptr<JoinVertex>, std::shared_ptr<JoinVertex>>;
 
 struct JoinEdge final {
-  JoinEdge(const JoinVertexPair& vertices);
+  explicit JoinEdge(const JoinVertexPair& vertices);
+
+  void print(std::ostream& stream = std::cout) const;
 
   JoinVertexPair vertices;
   std::vector<JoinPredicate> predicates;
@@ -56,9 +65,13 @@ struct JoinEdge final {
 struct JoinGraph final {
  public:
   using Vertices = std::vector<std::shared_ptr<JoinVertex>>;
-  using Edges = std::vector<JoinEdge>;
+  using Edges = std::vector<std::shared_ptr<JoinEdge>>;
 
   JoinGraph(Vertices vertices, Edges edges);
+
+  std::shared_ptr<JoinEdge> find_edge(const std::pair<std::shared_ptr<AbstractLQPNode>, std::shared_ptr<AbstractLQPNode>>& nodes) const;
+
+  void print(std::ostream& stream = std::cout) const;
 
   Vertices vertices;
   Edges edges;

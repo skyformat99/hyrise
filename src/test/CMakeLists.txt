@@ -68,6 +68,8 @@ set(
     operators/validate_visibility_test.cpp
     optimizer/column_statistics_test.cpp
     optimizer/expression_test.cpp
+    optimizer/join_graph_builder_test.cpp
+    optimizer/join_graph_test.cpp
     optimizer/lqp_translator_test.cpp
     optimizer/strategy/join_detection_rule_test.cpp
     optimizer/strategy/predicate_reordering_test.cpp

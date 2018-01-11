@@ -23,8 +23,8 @@ JoinGraph JoinGraphBuilder::build_join_graph(const std::shared_ptr<const Abstrac
       } else {
         const auto join_predicate = JoinPredicate{JoinMode::Inner, JoinColumnOrigins{predicate.column_origin, boost::get<LQPColumnOrigin>(predicate.value)}, predicate.scan_type};
 
-        auto& edge = _get_or_create_edge({vertex_left, vertex_right});
-        edge.predicates.emplace_back(join_predicate);
+        auto edge = _get_or_create_edge({vertex_left, vertex_right});
+        edge->predicates.emplace_back(join_predicate);
       }
     } else if (predicate.is_value_predicate()) {
       auto vertex = _get_vertex_for_column_origin(predicate.column_origin);
@@ -99,7 +99,7 @@ void JoinGraphBuilder::_traverse(const std::shared_ptr<const AbstractLQPNode>& n
   _traverse(node->right_child(), false);
 }
 
-JoinEdge& JoinGraphBuilder::_get_or_create_edge(const JoinVertexPair& vertices) {
+std::shared_ptr<JoinEdge> JoinGraphBuilder::_get_or_create_edge(const JoinVertexPair& vertices) {
   auto ordered_vertices = vertices;
   if (ordered_vertices.first > ordered_vertices.second) {
     std::swap(ordered_vertices.first, ordered_vertices.second);
@@ -108,7 +108,7 @@ JoinEdge& JoinGraphBuilder::_get_or_create_edge(const JoinVertexPair& vertices) 
   auto iter = _edge_idx_by_vertices.find(ordered_vertices);
   if (iter == _edge_idx_by_vertices.end()) {
     iter = _edge_idx_by_vertices.emplace(ordered_vertices, _edges.size()).first;
-    _edges.emplace_back(ordered_vertices);
+    _edges.emplace_back(std::make_shared<JoinEdge>(ordered_vertices));
   }
 
   return _edges[iter->second];

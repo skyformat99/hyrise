@@ -2,6 +2,8 @@
 
 #include "utils/assert.hpp"
 
+#include "constant_mappings.hpp"
+
 namespace opossum {
 
 LQPPredicate::LQPPredicate(const LQPColumnOrigin& column_origin,
@@ -17,6 +19,18 @@ bool LQPPredicate::is_column_predicate() const {
 
 bool LQPPredicate::is_value_predicate() const {
   return !is_column_predicate();
+}
+
+void LQPPredicate::print(std::ostream& stream) const {
+  stream << "{";
+  stream << column_origin.description() << " ";
+  stream << scan_type_to_string.left.at(scan_type) << " ";
+  stream << value;
+
+  if (value2) {
+    stream << " AND " << *value2;
+  }
+  stream << "}";
 }
 
 }  // namespace opossum

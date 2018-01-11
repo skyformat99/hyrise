@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <sstream>
 #include <vector>
 
 #include "optimizer/table_statistics.hpp"
@@ -55,5 +56,14 @@ std::string MockNode::get_verbose_column_name(ColumnID column_id) const {
   return output_column_names()[column_id];
 }
 
-std::string MockNode::description() const { return "[MockTable]"; }
+std::string MockNode::description() const {
+  std::stringstream stream;
+
+  stream << "[MockTable";
+  if (_table_alias) {
+    stream << " '" << *_table_alias << "'";
+  }
+  stream << "]";
+  return stream.str();
+}
 }  // namespace opossum
