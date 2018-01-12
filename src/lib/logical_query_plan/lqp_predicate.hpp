@@ -11,19 +11,21 @@ namespace opossum {
 
 struct LQPPredicate final {
   LQPPredicate(const LQPColumnOrigin& column_origin,
-                      const ScanType scan_type,
-                      const AllParameterVariant& value,
-                      const std::optional<AllTypeVariant>& value2 = std::nullopt);
+              const ScanType scan_type,
+              const AllParameterVariant& value,
+              const std::optional<AllTypeVariant>& value2 = std::nullopt);
 
   bool is_column_predicate() const;
   bool is_value_predicate() const;
 
   void print(std::ostream& stream = std::cout) const;
 
-  const LQPColumnOrigin column_origin;
-  const ScanType scan_type;
-  const AllParameterVariant value;
-  const std::optional<const AllTypeVariant> value2;
+  bool operator==(const LQPPredicate& rhs) const;
+
+  LQPColumnOrigin column_origin;
+  ScanType scan_type;
+  AllParameterVariant value;
+  std::optional<AllTypeVariant> value2;
 };
 
 }

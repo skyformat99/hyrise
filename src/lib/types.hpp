@@ -177,6 +177,8 @@ enum class ScanType {
   IsNotNull
 };
 
+ScanType flip_scan_type(ScanType scan_type);
+
 enum class ExpressionType {
   /*Any literal value*/
   Literal,

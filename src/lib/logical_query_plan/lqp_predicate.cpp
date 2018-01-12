@@ -21,6 +21,20 @@ bool LQPPredicate::is_value_predicate() const {
   return !is_column_predicate();
 }
 
+bool LQPPredicate::operator==(const LQPPredicate& rhs) const {
+  const auto equals = [&](const LQPPredicate& rhs) {
+    return column_origin == rhs.column_origin && scan_type == rhs.scan_type && value == rhs.value && value2 == rhs.value2;
+  };
+
+  if (equals(rhs)) return true;
+
+  if (rhs.scan_type != ScanType::Between && is_lqp_column_origin(rhs.value)) {
+    return equals({boost::get<LQPColumnOrigin>(rhs.value), flip_scan_type(rhs.scan_type), rhs.column_origin});
+  }
+
+  return false;
+}
+
 void LQPPredicate::print(std::ostream& stream) const {
   stream << "{";
   stream << column_origin.description() << " ";

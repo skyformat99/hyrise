@@ -19,24 +19,6 @@ JoinMode flip_join_mode(JoinMode join_mode) {
   return join_mode;
 }
 
-ScanType flip_scan_type(ScanType scan_type) {
-  switch(scan_type) {
-    case Equals: return ScanType::Equals;
-    case NotEquals: return ScanType::NotEquals;
-    case LessThan: return ScanType::GreaterThanEquals;
-    case LessThanEquals: return ScanType::GreaterThan;
-    case GreaterThan: return ScanType::LessThanEquals
-    case GreaterThanEquals: return ScanType::LessThan;
-    case Like: return ScanType::Like;
-    case NotLike: return ScanType::NotLike;
-    case IsNull: return ScanType::IsNull;
-    case IsNotNul: return ScanType::IsNotNull;
-    default:
-      Fail("Can't flip ScanType");
-      return scan_type;  // Return something to make compilers happy;
-  }
-}
-
 }
 
 namespace opossum {
@@ -51,7 +33,9 @@ JoinPredicate::JoinPredicate(JoinMode join_mode, const JoinColumnOrigins& join_c
 
 JoinPredicate JoinPredicate::flipped() const {
   return JoinPredicate{
-
+    flip_join_mode(join_mode),
+    {join_column_origins.second, join_column_origins.first},
+    flip_scan_type(scan_type)
   };
 }
 

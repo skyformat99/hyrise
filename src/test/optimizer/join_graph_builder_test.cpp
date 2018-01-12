@@ -14,7 +14,10 @@ bool edge_has_predicate(const std::shared_ptr<JoinEdge>& edge, const JoinColumnO
   const auto join_predicate = JoinPredicate{JoinMode::Inner, join_column_origins, scan_type};
 
   return std::find(edge->predicates.begin(), edge->predicates.end(), join_predicate) != edge->predicates.end() ||
-  std::find(edge->predicates.begin(), edge->predicates.end(), join_predicate.swapped()) != edge->predicates.end();
+  std::find(edge->predicates.begin(), edge->predicates.end(), join_predicate.flipped()) != edge->predicates.end();
+}
+bool vertex_has_predicate(const std::shared_ptr<JoinVertex>& vertex, const LQPPredicate& predicate) {
+  return std::find(vertex->predicates.begin(), vertex->predicates.end(), predicate) != vertex->predicates.end();
 }
 }
 
@@ -99,10 +102,8 @@ TEST_F(JoinGraphBuilderTest, ComplexTreeLQP) {
   predicate_node_b->set_right_child(mock_node_c);
 
   const auto lqp = predicate_node_e;
-  lqp->print();
 
   const auto join_graph = JoinGraphBuilder{}.build_join_graph(lqp);
-  join_graph.print();
 
   /**
    * Check the JoinVertices
@@ -119,9 +120,17 @@ TEST_F(JoinGraphBuilderTest, ComplexTreeLQP) {
   EXPECT_NE(vertex_c, nullptr);
   EXPECT_NE(vertex_d, nullptr);
 
+  EXPECT_EQ(vertex_a->predicates.size(), 0u);
+  EXPECT_EQ(vertex_b->predicates.size(), 0u);
+  EXPECT_EQ(vertex_c->predicates.size(), 1u);
+  EXPECT_EQ(vertex_has_predicate(vertex_c, LQPPredicate{column_c, ScanType::Equals, 42}));
+  EXPECT_EQ(vertex_d->predicates.size(), 1u);
+  EXPECT_EQ(vertex_has_predicate(vertex_d, LQPPredicate{column_d, ScanType::LessThan, 42}));
+
   /**
    * Check the JoinEdges
    */
+  // TODO(moritz) among these JoinEdges is one CrossJoin Edge between either a-c, a-d, b-c or b-d. Test for it.
   EXPECT_EQ(join_graph.edges.size(), 4u);
 
   const auto edge_a_b = join_graph.find_edge({mock_node_a, mock_node_b});
@@ -139,6 +148,12 @@ TEST_F(JoinGraphBuilderTest, ComplexTreeLQP) {
   ASSERT_NE(edge_a_d, nullptr);
   EXPECT_EQ(edge_a_d->predicates.size(), 1u);
   EXPECT_TRUE(edge_has_predicate(edge_a_d, JoinColumnOrigins{column_a, column_d}, ScanType::Equals));
+}
+
+TEST_F(JoinGraphBuilderTest, NodeTypesBecomingVertices) {
+  /**
+   * Test that everything except Joins and Predicates becomes a vertex for now
+   */
 
 
 
