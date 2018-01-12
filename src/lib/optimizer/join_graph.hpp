@@ -25,6 +25,8 @@ struct JoinVertex;
 struct JoinPredicate final {
   JoinPredicate(JoinMode join_mode, const JoinColumnOrigins& join_column_origins, ScanType scan_type);
 
+  JoinPredicate flipped() const;
+
   void print(std::ostream& stream = std::cout) const;
 
   bool operator==(const JoinPredicate& rhs) const;
@@ -70,6 +72,7 @@ struct JoinGraph final {
   JoinGraph(Vertices vertices, Edges edges);
 
   std::shared_ptr<JoinEdge> find_edge(const std::pair<std::shared_ptr<AbstractLQPNode>, std::shared_ptr<AbstractLQPNode>>& nodes) const;
+  std::shared_ptr<JoinVertex> find_vertex(const std::shared_ptr<AbstractLQPNode>& node) const;
 
   void print(std::ostream& stream = std::cout) const;
 

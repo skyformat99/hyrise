@@ -9,6 +9,36 @@
 #include "types.hpp"
 #include "utils/assert.hpp"
 
+namespace {
+using namespace opossum;  // NOLINT
+
+JoinMode flip_join_mode(JoinMode join_mode) {
+  if (join_mode == JoinMode::Left) return JoinMode::Right;
+  if (join_mode == JoinMode::Right) return JoinMode::Left;
+
+  return join_mode;
+}
+
+ScanType flip_scan_type(ScanType scan_type) {
+  switch(scan_type) {
+    case Equals: return ScanType::Equals;
+    case NotEquals: return ScanType::NotEquals;
+    case LessThan: return ScanType::GreaterThanEquals;
+    case LessThanEquals: return ScanType::GreaterThan;
+    case GreaterThan: return ScanType::LessThanEquals
+    case GreaterThanEquals: return ScanType::LessThan;
+    case Like: return ScanType::Like;
+    case NotLike: return ScanType::NotLike;
+    case IsNull: return ScanType::IsNull;
+    case IsNotNul: return ScanType::IsNotNull;
+    default:
+      Fail("Can't flip ScanType");
+      return scan_type;  // Return something to make compilers happy;
+  }
+}
+
+}
+
 namespace opossum {
 
 JoinPredicate::JoinPredicate(JoinMode join_mode, const JoinColumnOrigins& join_column_origins, ScanType scan_type):
@@ -17,6 +47,12 @@ JoinPredicate::JoinPredicate(JoinMode join_mode, const JoinColumnOrigins& join_c
   scan_type(scan_type)
 {
   DebugAssert(join_mode == JoinMode::Inner, "This constructor only supports inner join edges");
+}
+
+JoinPredicate JoinPredicate::flipped() const {
+  return JoinPredicate{
+
+  };
 }
 
 void JoinPredicate::print(std::ostream& stream) const {
@@ -60,6 +96,13 @@ std::shared_ptr<JoinEdge> JoinGraph::find_edge(const std::pair<std::shared_ptr<A
     (edge->vertices.first->node == nodes.second && edge->vertices.second->node == nodes.first);
   });
   return iter == edges.end() ? nullptr : *iter;
+}
+
+std::shared_ptr<JoinVertex> JoinGraph::find_vertex(const std::shared_ptr<AbstractLQPNode>& node) const {
+  const auto iter = std::find_if(vertices.begin(), vertices.end(), [&](const auto& vertex) {
+    return vertex->node == node;
+  });
+  return iter == vertices.end() ? nullptr : *iter;
 }
 
 void JoinGraph::print(std::ostream& stream) const {

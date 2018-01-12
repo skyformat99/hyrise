@@ -11,7 +11,10 @@ namespace {
 using namespace opossum;  // NOLINT
 
 bool edge_has_predicate(const std::shared_ptr<JoinEdge>& edge, const JoinColumnOrigins& join_column_origins, ScanType scan_type) {
-  return std::find(edge->predicates.begin(), edge->predicates.end(), JoinPredicate{JoinMode::Inner, join_column_origins, scan_type}) != edge->predicates.end();
+  const auto join_predicate = JoinPredicate{JoinMode::Inner, join_column_origins, scan_type};
+
+  return std::find(edge->predicates.begin(), edge->predicates.end(), join_predicate) != edge->predicates.end() ||
+  std::find(edge->predicates.begin(), edge->predicates.end(), join_predicate.swapped()) != edge->predicates.end();
 }
 }
 
@@ -101,6 +104,26 @@ TEST_F(JoinGraphBuilderTest, ComplexTreeLQP) {
   const auto join_graph = JoinGraphBuilder{}.build_join_graph(lqp);
   join_graph.print();
 
+  /**
+   * Check the JoinVertices
+   */
+  EXPECT_EQ(join_graph.vertices.size(), 4u);
+
+  const auto vertex_a = join_graph.find_vertex(mock_node_a);
+  const auto vertex_b = join_graph.find_vertex(mock_node_b);
+  const auto vertex_c = join_graph.find_vertex(mock_node_c);
+  const auto vertex_d = join_graph.find_vertex(mock_node_d);
+
+  EXPECT_NE(vertex_a, nullptr);
+  EXPECT_NE(vertex_b, nullptr);
+  EXPECT_NE(vertex_c, nullptr);
+  EXPECT_NE(vertex_d, nullptr);
+
+  /**
+   * Check the JoinEdges
+   */
+  EXPECT_EQ(join_graph.edges.size(), 4u);
+
   const auto edge_a_b = join_graph.find_edge({mock_node_a, mock_node_b});
   ASSERT_NE(edge_a_b, nullptr);
   EXPECT_EQ(edge_a_b->predicates.size(), 2u);
@@ -110,7 +133,14 @@ TEST_F(JoinGraphBuilderTest, ComplexTreeLQP) {
   const auto edge_c_d = join_graph.find_edge({mock_node_c, mock_node_d});
   ASSERT_NE(edge_c_d, nullptr);
   EXPECT_EQ(edge_c_d->predicates.size(), 1u);
-  EXPECT_TRUE(edge_has_predicate(edge_c_d, JoinColumnOrigins{column_a, column_b1}, ScanType::Equals));
+  EXPECT_TRUE(edge_has_predicate(edge_c_d, JoinColumnOrigins{column_c, column_d}, ScanType::Equals));
+
+  const auto edge_a_d = join_graph.find_edge({mock_node_a, mock_node_d});
+  ASSERT_NE(edge_a_d, nullptr);
+  EXPECT_EQ(edge_a_d->predicates.size(), 1u);
+  EXPECT_TRUE(edge_has_predicate(edge_a_d, JoinColumnOrigins{column_a, column_d}, ScanType::Equals));
+
+
 
 
 }
