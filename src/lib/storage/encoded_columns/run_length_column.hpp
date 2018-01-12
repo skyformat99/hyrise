@@ -17,8 +17,7 @@ template <typename T>
 class RunLengthColumn : public BaseEncodedColumn {
  public:
   explicit RunLengthColumn(const std::shared_ptr<const pmr_vector<T>>& values,
-                           const std::shared_ptr<const pmr_vector<ChunkOffset>>& end_positions,
-                           const T null_value);
+                           const std::shared_ptr<const pmr_vector<ChunkOffset>>& end_positions, const T null_value);
 
   std::shared_ptr<const pmr_vector<T>> values() const;
   std::shared_ptr<const pmr_vector<ChunkOffset>> end_positions() const;
@@ -34,10 +33,6 @@ class RunLengthColumn : public BaseEncodedColumn {
   const AllTypeVariant operator[](const ChunkOffset chunk_offset) const final;
 
   size_t size() const final;
-
-  void write_string_representation(std::string& row_string, const ChunkOffset chunk_offset) const final;
-
-  void copy_value_to_value_column(BaseColumn& value_column, ChunkOffset chunk_offset) const final;
 
   std::shared_ptr<BaseColumn> copy_using_allocator(const PolymorphicAllocator<size_t>& alloc) const final;
 

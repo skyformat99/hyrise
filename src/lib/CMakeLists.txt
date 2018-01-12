@@ -202,6 +202,8 @@ set(
     storage/base_value_column.hpp
     storage/chunk.cpp
     storage/chunk.hpp
+    storage/chunk_encoder.cpp
+    storage/chunk_encoder.hpp
     storage/column_visitable.hpp
     storage/copyable_atomic.hpp
     storage/deprecated_dictionary_column.cpp
@@ -264,16 +266,13 @@ set(
     storage/zero_suppression/base_zero_suppression_decoder.hpp
     storage/zero_suppression/base_zero_suppression_encoder.hpp
     storage/zero_suppression/base_zero_suppression_vector.hpp
+    storage/zero_suppression/encoders.hpp
     storage/zero_suppression/fixed_size_byte_aligned_decoder.hpp
+    storage/zero_suppression/fixed_size_byte_aligned_encoder.cpp
     storage/zero_suppression/fixed_size_byte_aligned_encoder.hpp
     storage/zero_suppression/fixed_size_byte_aligned_vector.hpp
-    storage/zero_suppression/decoders.hpp
-    storage/zero_suppression/encoders.hpp
-    storage/zero_suppression/zs_type.hpp
-    storage/zero_suppression/utils.cpp
-    storage/zero_suppression/utils.hpp
-    storage/zero_suppression/vectors.hpp
     storage/zero_suppression/oversized_types.hpp
+    storage/zero_suppression/resolve_zs_vector_type.hpp
     storage/zero_suppression/simd_bp128_decoder.cpp
     storage/zero_suppression/simd_bp128_decoder.hpp
     storage/zero_suppression/simd_bp128_encoder.cpp
@@ -284,6 +283,12 @@ set(
     storage/zero_suppression/simd_bp128_packing.hpp
     storage/zero_suppression/simd_bp128_vector.cpp
     storage/zero_suppression/simd_bp128_vector.hpp
+    storage/zero_suppression/utils.cpp
+    storage/zero_suppression/utils.hpp
+    storage/zero_suppression/vectors.hpp
+    storage/zero_suppression/zs_type.hpp
+    storage/zero_suppression/zs_vector_meta_info.hpp
+    storage/zero_suppression/zs_vector_type.hpp
     storage/numa_placement_manager.cpp
     storage/numa_placement_manager.hpp
     storage/proxy_chunk.cpp
