@@ -156,6 +156,8 @@ set(
     optimizer/join_graph.hpp
     optimizer/join_graph_builder.cpp
     optimizer/join_graph_builder.hpp
+    optimizer/strategy/join_ordering/dplinear.cpp
+    optimizer/strategy/join_ordering/dplinear.hpp
     optimizer/optimizer.cpp
     optimizer/optimizer.hpp
     optimizer/strategy/abstract_rule.cpp
