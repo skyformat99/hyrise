@@ -2,8 +2,12 @@
 
 #include <memory>
 
+#include "logical_query_plan/aggregate_node.hpp"
 #include "logical_query_plan/mock_node.hpp"
 #include "logical_query_plan/predicate_node.hpp"
+#include "logical_query_plan/sort_node.hpp"
+#include "logical_query_plan/union_node.hpp"
+#include "logical_query_plan/validate_node.hpp"
 #include "optimizer/join_graph_builder.hpp"
 
 namespace {
@@ -123,9 +127,9 @@ TEST_F(JoinGraphBuilderTest, ComplexTreeLQP) {
   EXPECT_EQ(vertex_a->predicates.size(), 0u);
   EXPECT_EQ(vertex_b->predicates.size(), 0u);
   EXPECT_EQ(vertex_c->predicates.size(), 1u);
-  EXPECT_EQ(vertex_has_predicate(vertex_c, LQPPredicate{column_c, ScanType::Equals, 42}));
+  EXPECT_TRUE(vertex_has_predicate(vertex_c, LQPPredicate{column_c, ScanType::Equals, 42}));
   EXPECT_EQ(vertex_d->predicates.size(), 1u);
-  EXPECT_EQ(vertex_has_predicate(vertex_d, LQPPredicate{column_d, ScanType::LessThan, 42}));
+  EXPECT_TRUE(vertex_has_predicate(vertex_d, LQPPredicate{column_d, ScanType::LessThan, 42}));
 
   /**
    * Check the JoinEdges
@@ -155,9 +159,79 @@ TEST_F(JoinGraphBuilderTest, NodeTypesBecomingVertices) {
    * Test that everything except Joins and Predicates becomes a vertex for now
    */
 
+  /*
+     [0] [UnionNode] Mode: UnionPositions
+     \_[1] [Predicate] B.y = 42
+     |  \_[2] [Cross Join]
+     |     \_[3] [Aggregate] SUM(A.x1) GROUP BY [A.x2]
+     |     \_[4] [Cross Join]
+     |        \_[5] [Sort] B.y (Ascending)
+     |        |  \_[6] [MockTable 'B'] -- ALIAS: 'B'
+     |        \_[7] [Validate]
+     |           \_[8] [MockTable 'C'] -- ALIAS: 'C'
+     \_[9] [Predicate] C.z = 42
+        \_Recurring Node --> [2]
+   */
 
+  const auto mock_node_a = std::make_shared<MockNode>(MockNode::ColumnDefinitions{{DataType::Int, "x1"}, {DataType::Int, "x2"}}, "A");
+  const auto mock_node_b = std::make_shared<MockNode>(MockNode::ColumnDefinitions{{DataType::Int, "y"}}, "B");
+  const auto mock_node_c = std::make_shared<MockNode>(MockNode::ColumnDefinitions{{DataType::Int, "z"}}, "C");
 
+  const auto x1 = LQPColumnOrigin{mock_node_a, ColumnID{0}};
+  const auto x2 = LQPColumnOrigin{mock_node_a, ColumnID{1}};
+  const auto y = LQPColumnOrigin{mock_node_b, ColumnID{0}};
+  const auto z = LQPColumnOrigin{mock_node_c, ColumnID{0}};
 
+  std::vector<std::shared_ptr<LQPExpression>> aggregates{LQPExpression::create_aggregate_function(AggregateFunction::Sum, {LQPExpression::create_column(x1)})};
+  const auto aggregate_node = std::make_shared<AggregateNode>(aggregates, std::vector<LQPColumnOrigin>{x2});
+
+  const auto sort_node = std::make_shared<SortNode>(OrderByDefinitions{{y, OrderByMode::Ascending}});
+  const auto validate_node = std::make_shared<ValidateNode>();
+
+  const auto join_node_a = std::make_shared<JoinNode>(JoinMode::Cross);
+  const auto join_node_b = std::make_shared<JoinNode>(JoinMode::Cross);
+
+  const auto predicate_node_a = std::make_shared<PredicateNode>(y, ScanType::Equals, 42);
+  const auto predicate_node_b = std::make_shared<PredicateNode>(z, ScanType::Equals, 42);
+
+  const auto union_node = std::make_shared<UnionNode>(UnionMode::Positions);
+
+  union_node->set_left_child(predicate_node_a);
+  union_node->set_right_child(predicate_node_b);
+  predicate_node_a->set_left_child(join_node_a);
+  predicate_node_b->set_left_child(join_node_a);
+  join_node_a->set_left_child(aggregate_node);
+  join_node_a->set_right_child(join_node_b);
+  aggregate_node->set_left_child(mock_node_a);
+  join_node_b->set_left_child(sort_node);
+  join_node_b->set_right_child(validate_node);
+  sort_node->set_left_child(mock_node_b);
+  validate_node->set_left_child(mock_node_c);
+
+  /**
+   * Verify the correct Vertices are being generated when building the JoinGraph from different nodes.
+   */
+
+  const auto join_graph_a = JoinGraphBuilder{}.build_join_graph(union_node);
+  ASSERT_EQ(join_graph_a.vertices.size(), 1u);
+  EXPECT_EQ(join_graph_a.vertices.at(0)->node, union_node);
+  EXPECT_EQ(join_graph_a.edges.size(), 0u);
+
+  const auto join_graph_b = JoinGraphBuilder{}.build_join_graph(predicate_node_a);
+  ASSERT_EQ(join_graph_b.vertices.size(), 1u);
+  EXPECT_EQ(join_graph_b.vertices.at(0)->node, join_node_a);
+  EXPECT_EQ(join_graph_b.edges.size(), 0u);
+
+  const auto join_graph_c = JoinGraphBuilder{}.build_join_graph(predicate_node_b);
+  ASSERT_EQ(join_graph_c.vertices.size(), 1u);
+  EXPECT_EQ(join_graph_c.vertices.at(0)->node, join_node_a);
+  EXPECT_EQ(join_graph_c.edges.size(), 0u);
+
+  const auto join_graph_d = JoinGraphBuilder{}.build_join_graph(join_node_a);
+  ASSERT_EQ(join_graph_d.vertices.size(), 3u);
+  EXPECT_NE(join_graph_d.find_vertex(aggregate_node), nullptr);
+  EXPECT_NE(join_graph_d.find_vertex(sort_node), nullptr);
+  EXPECT_NE(join_graph_d.find_vertex(validate_node), nullptr);
 }
 
 }  // namespace opossum

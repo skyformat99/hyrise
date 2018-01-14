@@ -49,6 +49,8 @@ std::shared_ptr<AbstractLQPNode> MockNode::_deep_copy_impl(const std::shared_ptr
 const std::vector<std::string>& MockNode::output_column_names() const { return _output_column_names; }
 
 std::string MockNode::get_verbose_column_name(ColumnID column_id) const {
+  Assert(column_id < output_column_count(), "ColumnID out of range");
+
   // Aliasing a MockNode doesn't really make sense, but let's stay covered
   if (_table_alias) {
     return *_table_alias + "." + output_column_names()[column_id];
