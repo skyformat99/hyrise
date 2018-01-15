@@ -33,7 +33,8 @@ int main() {
   const auto join_graph = JoinGraphBuilder{}.build_join_graph(join_node_b);
   join_graph.print();
 
-  const auto optimized_lqp = DPLinear{}.run(std::make_shared<JoinGraph>(join_graph));
+  const auto optimized_lqp = DPLinear{std::make_shared<JoinGraph>(join_graph)}.run();
+  optimized_lqp->print();
 
   return 0;
 }

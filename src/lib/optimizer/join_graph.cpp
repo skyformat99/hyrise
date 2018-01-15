@@ -48,7 +48,7 @@ bool JoinPredicate::operator==(const JoinPredicate& rhs) const {
   return join_mode == rhs.join_mode && join_column_origins == rhs.join_column_origins && scan_type == rhs.scan_type;
 }
 
-JoinVertex::JoinVertex(const std::shared_ptr<const AbstractLQPNode>& node): node(node) {
+JoinVertex::JoinVertex(const std::shared_ptr<AbstractLQPNode>& node): node(node) {
 
 }
 
@@ -74,7 +74,7 @@ void JoinEdge::print(std::ostream& stream) const {
 JoinGraph::JoinGraph(Vertices vertices, Edges edges):
   vertices(vertices), edges(edges) {}
 
-std::shared_ptr<JoinEdge> JoinGraph::find_edge(const std::pair<std::shared_ptr<AbstractLQPNode>, std::shared_ptr<AbstractLQPNode>>& nodes) const {
+std::shared_ptr<JoinEdge> JoinGraph::find_edge(const std::pair<std::shared_ptr<const AbstractLQPNode>, std::shared_ptr<const AbstractLQPNode>>& nodes) const {
   const auto iter = std::find_if(edges.begin(), edges.end(), [&](const auto& edge) {
     return (edge->vertices.first->node == nodes.first && edge->vertices.second->node == nodes.second) ||
     (edge->vertices.first->node == nodes.second && edge->vertices.second->node == nodes.first);

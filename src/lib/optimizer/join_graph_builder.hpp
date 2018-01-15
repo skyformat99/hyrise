@@ -24,10 +24,10 @@ class JoinGraphBuilder final {
    * From the subtree of root, build a JoinGraph.
    * The LQP is not modified during this process.
    */
-  JoinGraph build_join_graph(const std::shared_ptr<const AbstractLQPNode>& node);
+  JoinGraph build_join_graph(const std::shared_ptr<AbstractLQPNode>& node);
 
  private:
-  void _traverse(const std::shared_ptr<const AbstractLQPNode>& node, const bool is_root_invocation);
+  void _traverse(const std::shared_ptr<AbstractLQPNode>& node, const bool is_root_invocation);
 
   /**
    * @return JoinEdge, might be invalidated by subsequent call

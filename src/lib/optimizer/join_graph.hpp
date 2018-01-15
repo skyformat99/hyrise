@@ -31,17 +31,17 @@ struct JoinPredicate final {
 
   bool operator==(const JoinPredicate& rhs) const;
 
-  const JoinMode join_mode;
-  const JoinColumnOrigins join_column_origins;
-  const ScanType scan_type;
+  JoinMode join_mode;
+  JoinColumnOrigins join_column_origins;
+  ScanType scan_type;
 };
 
 struct JoinVertex final {
-  explicit JoinVertex(const std::shared_ptr<const AbstractLQPNode>& node);
+  explicit JoinVertex(const std::shared_ptr<AbstractLQPNode>& node);
 
   void print(std::ostream& stream = std::cout) const;
 
-  std::shared_ptr<const AbstractLQPNode> node;
+  std::shared_ptr<AbstractLQPNode> node;
   std::vector<LQPPredicate> predicates;
 };
 
@@ -71,7 +71,7 @@ struct JoinGraph final {
 
   JoinGraph(Vertices vertices, Edges edges);
 
-  std::shared_ptr<JoinEdge> find_edge(const std::pair<std::shared_ptr<AbstractLQPNode>, std::shared_ptr<AbstractLQPNode>>& nodes) const;
+  std::shared_ptr<JoinEdge> find_edge(const std::pair<std::shared_ptr<const AbstractLQPNode>, std::shared_ptr<const AbstractLQPNode>>& nodes) const;
   std::shared_ptr<JoinVertex> find_vertex(const std::shared_ptr<AbstractLQPNode>& node) const;
 
   void print(std::ostream& stream = std::cout) const;

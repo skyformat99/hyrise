@@ -20,8 +20,8 @@ void _generate_all_subsets_n(std::vector<std::set<size_t>>& subsets,
   auto current_subset_copy = current_subset;
   current_subset.insert(index);
 
-  _generate_all_subsets_n(subsets, current_subset, index + 1, subset_size, set_size);
-  _generate_all_subsets_n(subsets, current_subset_copy, index + 1, subset_size, set_size);
+  _generate_all_subsets_n(subsets, current_subset, index + 1, set_size, subset_size);
+  _generate_all_subsets_n(subsets, current_subset_copy, index + 1, set_size, subset_size);
 }
 
 std::vector<std::set<size_t>> generate_all_subsets_n(const size_t set_size, const size_t subset_size) {
@@ -42,7 +42,16 @@ DPLinear::DPLinear(const std::shared_ptr<const JoinGraph>& join_graph): _join_gr
 std::shared_ptr<AbstractLQPNode> DPLinear::run() {
   const auto num_vertices = _join_graph->vertices.size();
 
-  for (size_t num_vertices_in_tree = 1; num_vertices_in_tree <= num_vertices; ++num_vertices_in_tree) {
+  for (size_t vertex_idx = 0; vertex_idx < num_vertices; ++vertex_idx) {
+    std::set<size_t> single_vertex_idx;
+    single_vertex_idx.insert(vertex_idx);
+
+    const auto single_vertex_tree = std::make_shared<JoinTree>(_join_graph->vertices[vertex_idx]->node, std::vector<std::shared_ptr<JoinVertex>>{_join_graph->vertices[vertex_idx]});
+
+    _set_best_tree(single_vertex_idx, single_vertex_tree);
+  }
+
+  for (size_t num_vertices_in_tree = 1; num_vertices_in_tree < num_vertices; ++num_vertices_in_tree) {
     const auto vertex_idx_subsets = generate_all_subsets_n(num_vertices, num_vertices_in_tree);
 
     for (const auto& vertex_idx_subset : vertex_idx_subsets) {
@@ -51,7 +60,12 @@ std::shared_ptr<AbstractLQPNode> DPLinear::run() {
         if (vertex_idx_subset.count(join_vertex_idx) != 0) continue;
 
         const auto join_vertex = _join_graph->vertices[join_vertex_idx];
-        const auto join_tree = _create_join_tree(_best_tree(vertex_idx_subset), join_vertex);
+        const auto subset_best_tree = _best_tree(vertex_idx_subset);
+        if (!subset_best_tree) {
+          continue; // Subtree is not connected
+        }
+
+        const auto join_tree = _create_join_tree(subset_best_tree, join_vertex);
         if (!join_tree) {
           continue;
         }
@@ -59,9 +73,11 @@ std::shared_ptr<AbstractLQPNode> DPLinear::run() {
         auto joined_vertex_idx_subset = vertex_idx_subset;
         joined_vertex_idx_subset.insert(join_vertex_idx);
 
+
         const auto current_best_tree = _best_tree(joined_vertex_idx_subset);
 
-        if (current_best_tree == nullptr || _cost(current_best_tree) > _cost(join_tree)) {
+        if (current_best_tree == nullptr || _cost(current_best_tree->lqp) > _cost(join_tree->lqp)) {
+          std::cout << "Setting tree for "; for (auto i : vertex_idx_subset) std::cout << i << " "; std::cout << " - joined with " << join_vertex_idx << std::endl;
           _set_best_tree(joined_vertex_idx_subset, join_tree);
         }
       }
@@ -71,14 +87,14 @@ std::shared_ptr<AbstractLQPNode> DPLinear::run() {
   std::set<size_t> all_vertex_ids;
   for (size_t vertex_idx = 0; vertex_idx < num_vertices; ++vertex_idx) all_vertex_ids.insert(vertex_idx);
 
-  return _best_tree(all_vertex_ids);
+  return _best_tree(all_vertex_ids)->lqp;
 }
 
 std::shared_ptr<const JoinTree> DPLinear::_create_join_tree(const std::shared_ptr<const JoinTree>& tree, const std::shared_ptr<JoinVertex>& join_vertex) const {
   std::vector<std::shared_ptr<JoinEdge>> edges;
 
   for (const auto& tree_vertex : tree->vertices) {
-    auto edge = _join_graph->find_edge({tree_vertex->node, join_vertex->node});
+    auto edge = _join_graph->find_edge(std::make_pair(tree_vertex->node, join_vertex->node));
     if (edge) {
       edges.emplace_back(edge);
     }
@@ -118,7 +134,7 @@ std::shared_ptr<const JoinTree> DPLinear::_create_join_tree(const std::shared_pt
       const auto& predicate = join_predicates[predicate_idx];
       auto predicate_node = std::make_shared<PredicateNode>(predicate.join_column_origins.first, join_predicate.scan_type, predicate.join_column_origins.second);
       predicate_node->set_left_child(joined_lqp);
-      predicate_node = joined_lqp;
+      joined_lqp = predicate_node;
     }
   }
 
@@ -131,11 +147,12 @@ std::shared_ptr<const JoinTree> DPLinear::_create_join_tree(const std::shared_pt
   return std::make_shared<JoinTree>(joined_lqp, vertices);
 }
 
-std::shared_ptr<JoinTree> DPLinear::_best_tree(const std::set<size_t>& vertex_ids) const {
-  return _best_trees[vertex_ids];
+std::shared_ptr<const JoinTree> DPLinear::_best_tree(const std::set<size_t>& vertex_ids) const {
+  const auto iter = _best_trees.find(vertex_ids);
+  return iter == _best_trees.end() ? std::shared_ptr<const JoinTree>{} : iter->second;
 }
 
-void DPLinear::_set_best_tree(const std::set<size_t>& vertex_ids, const std::shared_ptr<JoinTree>& tree) {
+void DPLinear::_set_best_tree(const std::set<size_t>& vertex_ids, const std::shared_ptr<const JoinTree>& tree) {
   _best_trees[vertex_ids] = tree;
 }
 
@@ -149,7 +166,7 @@ float DPLinear::_cost(const std::shared_ptr<AbstractLQPNode>& lqp) const {
     case LQPNodeType::Predicate: cost += lqp->left_child()->get_statistics()->row_count(); break;
     case LQPNodeType::Join: cost += lqp->left_child()->get_statistics()->row_count() * lqp->right_child()->get_statistics()->row_count(); break;
     default:
-      return lqp->left_child()->get_statistics()->row_count();
+      return lqp->get_statistics()->row_count();
   }
 
   return cost;

@@ -6,7 +6,7 @@
 
 namespace opossum {
 
-JoinGraph JoinGraphBuilder::build_join_graph(const std::shared_ptr<const AbstractLQPNode>& root) {
+JoinGraph JoinGraphBuilder::build_join_graph(const std::shared_ptr<AbstractLQPNode>& root) {
   _traverse(root, true);
 
   /**
@@ -40,7 +40,7 @@ JoinGraph JoinGraphBuilder::build_join_graph(const std::shared_ptr<const Abstrac
   return {std::move(_vertices), std::move(_edges)};
 }
 
-void JoinGraphBuilder::_traverse(const std::shared_ptr<const AbstractLQPNode>& node, const bool is_root_invocation) {
+void JoinGraphBuilder::_traverse(const std::shared_ptr<AbstractLQPNode>& node, const bool is_root_invocation) {
   /**
    * Early return to make it possible to call search_join_graph() on both children without having to check whether they
    * are nullptr.
