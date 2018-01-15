@@ -41,7 +41,8 @@ std::string to_string(EncodingType encoding_type) {
 class SingleDistributionBenchmark {
  public:
    static const auto row_count = 1'000'000;
-   static const auto sorted = true;
+   static const auto sorted = false;
+   static constexpr auto name = "Uniform from 0 to 10.000";
 
  public:
   SingleDistributionBenchmark() {
@@ -60,11 +61,11 @@ class SingleDistributionBenchmark {
     auto generator = [cg = column_generator]() { return cg.uniformly_distributed_column(0, 10'000); };
 
     using ValueColumnPtr = std::shared_ptr<ValueColumn<int32_t>>;
-    return std::pair<std::string, std::function<ValueColumnPtr()>>{"Uniform from 0 to 10.000", generator};
+    return std::function<ValueColumnPtr()>{generator};
   }
 
   std::vector<EncodingType> _encoding_types() {
-    return std::vector<EncodingType>{ EncodingType::DeprecatedDictionary, EncodingType::Dictionary, EncodingType::RunLength };
+    return std::vector<EncodingType>{ EncodingType::DeprecatedDictionary, EncodingType::RunLength, EncodingType::Dictionary };
   }
 
   void _create_report() const {
@@ -94,18 +95,16 @@ class SingleDistributionBenchmark {
     std::stringstream timestamp_stream;
     timestamp_stream << std::put_time(&local_time, "%Y-%m-%d %H:%M:%S");
 
-    auto [distribution_name, g] = _distribution_generator();
-
     nlohmann::json context{
         {"date", timestamp_stream.str()},
         {"build_type", IS_DEBUG ? "debug" : "release"},
-        {"distribution", distribution_name},
+        {"distribution", name},
         {"row_count", row_count},
         {"sorted", sorted}};
 
     nlohmann::json report{{"context", context}, {"benchmarks", benchmarks}};
 
-    auto output_file = std::ofstream("/Users/maxjendruk/Development/hyrise-jupyter/single_distribution_benchmark.json");
+    auto output_file = std::ofstream("/home/Max.Jendruk/hyrise/single_distribution.json");
     output_file << std::setw(2) << report << std::endl;
   }
 
@@ -119,8 +118,8 @@ class SingleDistributionBenchmark {
   }
 
   const BenchmarkState benchmark_decompression_with_iterable(const BaseColumn& base_column) {
-    static const auto max_num_iterations = 1000u;
-    static const auto max_duration = std::chrono::seconds{20};
+    static const auto max_num_iterations = 30u;
+    static const auto max_duration = std::chrono::seconds{30};
 
     auto benchmark_state = BenchmarkState{max_num_iterations, max_duration};
 
@@ -142,7 +141,7 @@ class SingleDistributionBenchmark {
 
  public:
   void run() {
-    const auto& [name, generator] = _distribution_generator();
+    const auto generator = _distribution_generator();
 
     std::cout << "Begin Encoding Type: Unencoded" << std::endl;
 
