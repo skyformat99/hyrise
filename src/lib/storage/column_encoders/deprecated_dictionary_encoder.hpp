@@ -17,9 +17,10 @@ namespace opossum {
 class DeprecatedDictionaryEncoder : public ColumnEncoder<DeprecatedDictionaryEncoder> {
  public:
   static constexpr auto _encoding_type = enum_c<EncodingType, EncodingType::DeprecatedDictionary>;
+  static constexpr auto _uses_zero_suppression = false;
 
   template <typename T>
-  std::shared_ptr<BaseEncodedColumn> _on_encode(const std::shared_ptr<ValueColumn<T>>& value_column) {
+  std::shared_ptr<BaseEncodedColumn> _on_encode(const std::shared_ptr<const ValueColumn<T>>& value_column) {
     // See: https://goo.gl/MCM5rr
     // Create dictionary (enforce uniqueness and sorting)
     const auto& values = value_column->values();
@@ -89,7 +90,8 @@ class DeprecatedDictionaryEncoder : public ColumnEncoder<DeprecatedDictionaryEnc
         std::distance(dictionary.cbegin(), std::lower_bound(dictionary.cbegin(), dictionary.cend(), value)));
   }
 
-  static std::shared_ptr<BaseAttributeVector> _create_fitted_attribute_vector(size_t unique_values_count, size_t size, const PolymorphicAllocator<size_t>& alloc) {
+  static std::shared_ptr<BaseAttributeVector> _create_fitted_attribute_vector(
+      size_t unique_values_count, size_t size, const PolymorphicAllocator<size_t>& alloc) {
     if (unique_values_count <= std::numeric_limits<uint8_t>::max()) {
       return std::make_shared<FittedAttributeVector<uint8_t>>(size, alloc);
     } else if (unique_values_count <= std::numeric_limits<uint16_t>::max()) {
