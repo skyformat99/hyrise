@@ -1,4 +1,4 @@
-#include "projection.hpp"
+ #include "projection.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -43,11 +43,11 @@ void Projection::_create_column(boost::hana::basic_type<T> type, const std::shar
                                 const ChunkID chunk_id, const std::shared_ptr<OperatorExpression>& expression,
                                 std::shared_ptr<const Table> input_table_left) {
   // check whether term is a just a simple column and bypass this column
-  if (expression->type() == ExpressionType::Column) {
-    // we have to use get_mutable_column here because we cannot add a const column to the chunk
-    auto bypassed_column = input_table_left->get_chunk(chunk_id)->get_mutable_column(expression->column_id());
-    return chunk->add_column(bypassed_column);
-  }
+//  if (expression->type() == ExpressionType::Column) {
+//    // we have to use get_mutable_column here because we cannot add a const column to the chunk
+//    auto bypassed_column = input_table_left->get_chunk(chunk_id)->get_mutable_column(expression->column_id());
+//    return chunk->add_column(bypassed_column);
+//  }
 
   std::shared_ptr<BaseColumn> column;
 

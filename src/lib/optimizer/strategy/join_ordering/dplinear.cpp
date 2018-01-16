@@ -132,14 +132,22 @@ std::shared_ptr<const JoinTree> DPLinear::_create_join_tree(const std::shared_pt
 
     for (size_t predicate_idx = 1; predicate_idx < join_predicates.size(); ++predicate_idx) {
       const auto& predicate = join_predicates[predicate_idx];
-      auto predicate_node = std::make_shared<PredicateNode>(predicate.join_column_origins.first, join_predicate.scan_type, predicate.join_column_origins.second);
+      auto predicate_node = std::make_shared<PredicateNode>(predicate.join_column_origins.first, predicate.scan_type, predicate.join_column_origins.second);
       predicate_node->set_left_child(joined_lqp);
       joined_lqp = predicate_node;
     }
   }
 
   join_node->set_left_child(tree->lqp);
-  join_node->set_right_child(join_vertex->node);
+
+  auto right_child = join_vertex->node;
+  for (const auto& predicate : join_vertex->predicates) {
+    auto predicate_node = std::make_shared<PredicateNode>(predicate.column_origin, predicate.scan_type, predicate.value, predicate.value2);
+    predicate_node->set_left_child(right_child);
+    right_child = predicate_node;
+  }
+
+  join_node->set_right_child(right_child);
 
   auto vertices = tree->vertices;
   vertices.emplace_back(join_vertex);
@@ -162,11 +170,12 @@ float DPLinear::_cost(const std::shared_ptr<AbstractLQPNode>& lqp) const {
 
   auto cost = cost_left + cost_right;
 
-  switch(lqp->type()) {
-    case LQPNodeType::Predicate: cost += lqp->left_child()->get_statistics()->row_count(); break;
-    case LQPNodeType::Join: cost += lqp->left_child()->get_statistics()->row_count() * lqp->right_child()->get_statistics()->row_count(); break;
-    default:
-      return lqp->get_statistics()->row_count();
+  if (lqp->type() == LQPNodeType::Predicate) {
+    cost += lqp->left_child()->get_statistics()->row_count();
+  } else if (lqp->type() == LQPNodeType::Join) {
+    cost += lqp->left_child()->get_statistics()->row_count() * lqp->right_child()->get_statistics()->row_count();
+  } else {
+    return lqp->get_statistics()->row_count();
   }
 
   return cost;
