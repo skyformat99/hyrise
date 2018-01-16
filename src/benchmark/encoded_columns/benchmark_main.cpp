@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <fstream>
 #include <functional>
+#include <sstream>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -16,6 +17,8 @@
 #include "storage/encoded_columns/column_encoding_type.hpp"
 #include "storage/iterables/create_iterable_from_column.hpp"
 #include "storage/encoded_columns/utils.hpp"
+#include "storage/zero_suppression/zs_type.hpp"
+#include "storage/chunk_encoder.hpp"
 
 #include "benchmark_utilities/arithmetic_column_generator.hpp"
 
@@ -36,12 +39,29 @@ std::string to_string(EncodingType encoding_type) {
   return string_for_type.at(encoding_type);
 }
 
+std::string to_string(ZsType zs_type) {
+  static const auto string_for_type = std::map<ZsType, std::string>{
+    { ZsType::FixedSizeByteAligned, "Fixed-size byte-aligned" },
+    { ZsType::SimdBp128, "SIMD-BP128" }};
+
+  return string_for_type.at(zs_type);
+}
+
+std::string to_string(const ColumnEncodingSpec& spec) {
+  auto stream = std::stringstream{};
+  stream << to_string(spec.encoding_type);
+  if (spec.zs_type) {
+    stream << " (" << to_string(*spec.zs_type) << ")";
+  }
+  return stream.str();
+}
+
 }  // namespace
 
 class SingleDistributionBenchmark {
  public:
    static const auto row_count = 1'000'000;
-   static const auto sorted = false;
+   static const auto sorted = true;
    static constexpr auto name = "Uniform from 0 to 10.000";
 
  public:
@@ -64,8 +84,8 @@ class SingleDistributionBenchmark {
     return std::function<ValueColumnPtr()>{generator};
   }
 
-  std::vector<EncodingType> _encoding_types() {
-    return std::vector<EncodingType>{ EncodingType::DeprecatedDictionary, EncodingType::RunLength, EncodingType::Dictionary };
+  std::vector<ColumnEncodingSpec> _encoding_specs() {
+    return { {EncodingType::DeprecatedDictionary}, {EncodingType::RunLength}, {EncodingType::Dictionary, ZsType::FixedSizeByteAligned}, {EncodingType::Dictionary, ZsType::SimdBp128} };
   }
 
   void _create_report() const {
@@ -79,7 +99,7 @@ class SingleDistributionBenchmark {
                      [](auto x) { return std::round(static_cast<double>(row_count) / std::chrono::duration_cast<std::chrono::microseconds>(x).count()); });
 
       nlohmann::json benchmark{
-        {"encoding_type", to_string(result_set.encoding_type)},
+        {"encoding_spec", to_string(result_set.encoding_spec)},
         {"iterations", result_set.num_iterations},
         {"allocated_memory", result_set.allocated_memory},
         {"results", results_in_ms}};
@@ -104,7 +124,7 @@ class SingleDistributionBenchmark {
 
     nlohmann::json report{{"context", context}, {"benchmarks", benchmarks}};
 
-    auto output_file = std::ofstream("/home/Max.Jendruk/hyrise/single_distribution.json");
+    auto output_file = std::ofstream("/Users/maxjendruk/Development/hyrise-jupyter/single_distribution.json");
     output_file << std::setw(2) << report << std::endl;
   }
 
@@ -119,7 +139,7 @@ class SingleDistributionBenchmark {
 
   const BenchmarkState benchmark_decompression_with_iterable(const BaseColumn& base_column) {
     static const auto max_num_iterations = 30u;
-    static const auto max_duration = std::chrono::seconds{30};
+    static const auto max_duration = std::chrono::seconds{20};
 
     auto benchmark_state = BenchmarkState{max_num_iterations, max_duration};
 
@@ -151,13 +171,17 @@ class SingleDistributionBenchmark {
 
     auto results = benchmark_state.results();
     auto num_iterations = benchmark_state.num_iterations();
-    _result_sets.push_back({EncodingType::Invalid, num_iterations, allocated_memory, std::move(results)});
+    _result_sets.push_back({{EncodingType::Invalid}, num_iterations, allocated_memory, std::move(results)});
 
-    for (auto encoding_type : _encoding_types()) {
+    for (const auto& encoding_spec : _encoding_specs()) {
 
-      std::cout << "Begin Encoding Type: " << to_string(encoding_type) << std::endl;
+      std::cout << "Begin Encoding Type: " << to_string(encoding_spec) << std::endl;
 
-      auto encoder = create_encoder(encoding_type);
+      auto encoder = create_encoder(encoding_spec.encoding_type);
+
+      if (encoding_spec.zs_type) {
+        encoder->set_zs_type(*encoding_spec.zs_type);
+      }
 
       auto [encoded_column, allocated_memory] = memory_consumption(
           [&, vc = value_column]() { return encoder->encode(DataType::Int, vc); });
@@ -167,7 +191,7 @@ class SingleDistributionBenchmark {
       auto results = benchmark_state.results();
       auto num_iterations = benchmark_state.num_iterations();
 
-      _result_sets.push_back({encoding_type, num_iterations, allocated_memory, std::move(results)});
+      _result_sets.push_back({encoding_spec, num_iterations, allocated_memory, std::move(results)});
     }
 
     _create_report();
@@ -177,7 +201,7 @@ class SingleDistributionBenchmark {
   std::unique_ptr<BenchmarkMemoryResource> _memory_resource;
 
   struct MeasurementResultSet{
-    EncodingType encoding_type;
+    ColumnEncodingSpec encoding_spec;
     size_t num_iterations;
     size_t allocated_memory;
     std::vector<Duration> results;
