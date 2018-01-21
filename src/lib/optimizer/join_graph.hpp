@@ -50,6 +50,11 @@ using JoinVertexPair = std::pair<std::shared_ptr<JoinVertex>, std::shared_ptr<Jo
 struct JoinEdge final {
   explicit JoinEdge(const JoinVertexPair& vertices);
 
+  /**
+   * @return the vertex that is NOT @param node
+   */
+  std::shared_ptr<JoinVertex> get_adjacent_vertex(const std::shared_ptr<AbstractLQPNode>& node) const;
+
   void print(std::ostream& stream = std::cout) const;
 
   JoinVertexPair vertices;
@@ -72,6 +77,7 @@ struct JoinGraph final {
   JoinGraph(Vertices vertices, Edges edges);
 
   std::shared_ptr<JoinEdge> find_edge(const std::pair<std::shared_ptr<const AbstractLQPNode>, std::shared_ptr<const AbstractLQPNode>>& nodes) const;
+  std::vector<std::shared_ptr<JoinEdge>> find_edges(const std::shared_ptr<const AbstractLQPNode>& node) const;
   std::shared_ptr<JoinVertex> find_vertex(const std::shared_ptr<AbstractLQPNode>& node) const;
 
   void print(std::ostream& stream = std::cout) const;

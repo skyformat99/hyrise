@@ -63,6 +63,15 @@ void JoinVertex::print(std::ostream& stream) const {
 
 JoinEdge::JoinEdge(const JoinVertexPair& vertices): vertices(std::move(vertices)) {}
 
+std::shared_ptr<JoinVertex> JoinEdge::get_adjacent_vertex(const std::shared_ptr<AbstractLQPNode>& node) const {
+  if (node == vertices.first) {
+    return vertices.second;
+  }
+
+  Assert(node == vertices.second, "Edge doesn't contain node");
+  return vertices.first;
+}
+
 void JoinEdge::print(std::ostream& stream) const {
   stream << "Edge between " << vertices.first->node.get() << " and " << vertices.second->node.get() << ", " << predicates.size() << " predicates" << std::endl;
   for (const auto& predicate : predicates) {
@@ -72,7 +81,7 @@ void JoinEdge::print(std::ostream& stream) const {
 }
 
 JoinGraph::JoinGraph(Vertices vertices, Edges edges):
-  vertices(vertices), edges(edges) {}
+  vertices(std::move(vertices)), edges(std::move(edges)) {}
 
 std::shared_ptr<JoinEdge> JoinGraph::find_edge(const std::pair<std::shared_ptr<const AbstractLQPNode>, std::shared_ptr<const AbstractLQPNode>>& nodes) const {
   const auto iter = std::find_if(edges.begin(), edges.end(), [&](const auto& edge) {
@@ -80,6 +89,18 @@ std::shared_ptr<JoinEdge> JoinGraph::find_edge(const std::pair<std::shared_ptr<c
     (edge->vertices.first->node == nodes.second && edge->vertices.second->node == nodes.first);
   });
   return iter == edges.end() ? nullptr : *iter;
+}
+
+JoinGraph::Edges JoinGraph::find_edges(const std::shared_ptr<const AbstractLQPNode>& node) const {
+  JoinGraph::Edges selected_edges;
+
+  for (auto& edge : edges) {
+    if (edge->vertices.first->node == node || edge->vertices.second->node == node) {
+      selected_edges.emplace_back(edge);
+    }
+  }
+
+  return selected_edges;
 }
 
 std::shared_ptr<JoinVertex> JoinGraph::find_vertex(const std::shared_ptr<AbstractLQPNode>& node) const {

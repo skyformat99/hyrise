@@ -162,11 +162,15 @@ set(
     optimizer/strategy/join_ordering/abstract_dp_algorithm.hpp
     optimizer/strategy/join_ordering/enumerate_ccp.cpp
     optimizer/strategy/join_ordering/enumerate_ccp.hpp
+    optimizer/strategy/join_ordering/dp_ccp.cpp
+    optimizer/strategy/join_ordering/dp_ccp.hpp
     optimizer/strategy/join_ordering/dp_linear.cpp
     optimizer/strategy/join_ordering/dp_linear.hpp
     optimizer/strategy/join_ordering/dp_size.cpp
     optimizer/strategy/join_ordering/dp_size.hpp
     optimizer/strategy/join_ordering/join_ordering.hpp
+    optimizer/strategy/join_ordering/join_plan_node.cpp
+    optimizer/strategy/join_ordering/join_plan_node.hpp
     optimizer/strategy/abstract_rule.cpp
     optimizer/strategy/abstract_rule.hpp
     optimizer/strategy/join_detection_rule.cpp

@@ -1,5 +1,7 @@
 #include "enumerate_ccp.hpp"
 
+#include <set>
+
 #include "utils/assert.hpp"
 
 namespace opossum {
@@ -8,6 +10,13 @@ EnumerateCcp::EnumerateCcp(size_t num_vertices, std::vector<std::pair<size_t, si
   _num_vertices(num_vertices),
   _edges(std::move(edges))
 {
+#if IS_DEBUG
+  // Test the input data for validity, i.e. whether all mentioned vertex indices in the edges are smaller than
+  // _num_vertices
+  for (const auto& edge : _edges) {
+    Assert(edge.first < _num_vertices && edge.second < _num_vertices, "Vertex Index out of range");
+  }
+#endif
 }
 
 std::vector<std::pair<boost::dynamic_bitset<>, boost::dynamic_bitset<>>> EnumerateCcp::operator()() {
@@ -16,16 +25,22 @@ std::vector<std::pair<boost::dynamic_bitset<>, boost::dynamic_bitset<>>> Enumera
 
     auto start_vertex_set = boost::dynamic_bitset<>(_num_vertices);
     start_vertex_set.set(forward_vertex_idx);
-    std::cout << "CSG1: " << start_vertex_set << std::endl;
     _enumerate_cmp(start_vertex_set);
 
     std::vector<boost::dynamic_bitset<>> csgs;
     _enumerate_csg_recursive(csgs, start_vertex_set, _exclusion_set(forward_vertex_idx));
     for (const auto& csg : csgs) {
-      std::cout << "CSG2: " << csg << std::endl;
       _enumerate_cmp(csg);
     }
   }
+
+#if IS_DEBUG
+  // Assert that algorithm didn't create duplicates
+  std::set<std::pair<boost::dynamic_bitset<>, boost::dynamic_bitset<>>> csg_cmp_pair_set;
+  for (const auto& csg_cmp_pair : _csg_cmp_pairs) {
+    Assert(csg_cmp_pair_set.emplace(csg_cmp_pair).second, "Duplicate CCP was generated");
+  }
+#endif
 
   return _csg_cmp_pairs;
 }
@@ -34,10 +49,8 @@ void EnumerateCcp::_enumerate_csg_recursive(std::vector<boost::dynamic_bitset<>>
   const auto neighbourhood = _neighbourhood(vertex_set, exclusion_set);
   const auto neighbourhood_subsets = _non_empty_subsets(neighbourhood);
   const auto extended_exclusion_set = exclusion_set | neighbourhood;
-  std::cout << "_enumerate_csg_recursive(" << vertex_set << ", " << exclusion_set << ", " << neighbourhood << ", " << neighbourhood_subsets.size() << ")" << std::endl;
 
   for (const auto& subset : neighbourhood_subsets) {
-    std::cout << " - CSG " << (subset | vertex_set) << std::endl;
     csgs.emplace_back(subset | vertex_set);
   }
 
@@ -50,7 +63,6 @@ void EnumerateCcp::_enumerate_cmp(const boost::dynamic_bitset<>& vertex_set) {
   const auto exclusion_set = _exclusion_set(vertex_set.find_first()) | vertex_set;
   const auto neighbourhood = _neighbourhood(vertex_set, exclusion_set);
   const auto extended_exclusion_set = exclusion_set | neighbourhood;
-  std::cout << "_enumerate_cmp(" << vertex_set << ", " << exclusion_set << ", " << neighbourhood << ")" << std::endl;
 
   if (neighbourhood.none()) return;
 
@@ -66,13 +78,11 @@ void EnumerateCcp::_enumerate_cmp(const boost::dynamic_bitset<>& vertex_set) {
     cmp_vertex_set.set(*iter);
 
     _csg_cmp_pairs.emplace_back(std::make_pair(vertex_set, cmp_vertex_set));
-    std::cout << "Emitting1 " << vertex_set << " | " << cmp_vertex_set << std::endl;
 
     std::vector<boost::dynamic_bitset<>> csgs;
     _enumerate_csg_recursive(csgs, cmp_vertex_set, extended_exclusion_set);
     for (const auto& csg : csgs) {
       _csg_cmp_pairs.emplace_back(std::make_pair(vertex_set, csg));
-      std::cout << "Emitting2 " << vertex_set << " | " << csg << std::endl;
     }
   }
 }
