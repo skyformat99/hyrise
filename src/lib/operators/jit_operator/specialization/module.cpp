@@ -18,7 +18,7 @@ Module::Module(const std::string& root_function_name)
       _module{std::make_unique<llvm::Module>(root_function_name, *_repository.llvm_context())},
       _compiler{_repository.llvm_context()} {
   auto root_function = _repository.get_function(root_function_name);
-  DebugAssert(root_function, "Root function could not be found in repository.");
+  DebugAssert(root_function, "root function not found in repository");
   _root_function = _clone_function(*root_function, "_");
 }
 
@@ -60,9 +60,10 @@ void Module::specialize(const RuntimePointer::Ptr& runtime_this) {
       call_site.setCalledFunction(cloned_function);
     }
 
+    auto called_function = call_site.getCalledFunction();
     llvm::InlineFunctionInfo info;
     if (llvm::InlineFunction(call_site, info)) {
-      call_site.getCalledFunction()->eraseFromParent();
+      called_function->eraseFromParent();
       for (auto& new_call_site : info.InlinedCallSites) {
         call_sites.push(new_call_site);
       }
