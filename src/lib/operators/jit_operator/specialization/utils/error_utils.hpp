@@ -30,8 +30,15 @@ struct error_utils {
     }
   }
 
-  static void handle_error(int error) {
+  static void handle_error(const int error) {
     if (error) {
+      llvm_unreachable("");
+    }
+  }
+
+  static void handle_error(const std::error_code& error) {
+    if (error) {
+      std::cerr << error.message() << std::endl;
       llvm_unreachable("");
     }
   }

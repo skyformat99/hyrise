@@ -24,6 +24,8 @@ ConstantReader<T>::ConstantReader(const T& val) : _val{val} {}
 template<typename T>
 opossum::JitVariant ConstantReader<T>::get_value(int32_t ctx) const { return opossum::JitVariant{_val}; }
 
+opossum::JitVariant ContextReader::get_value(int32_t ctx) const { return opossum::JitVariant{ctx}; }
+
 template class ConstantReader<int32_t>;
 template class ConstantReader<int64_t>;
 template class ConstantReader<float>;

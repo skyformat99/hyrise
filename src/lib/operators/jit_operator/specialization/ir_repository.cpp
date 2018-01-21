@@ -4,6 +4,7 @@
 
 #include <llvm/ADT/SetVector.h>
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/DebugInfo.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
 #include "utils/llvm_utils.hpp"
@@ -48,6 +49,7 @@ IRRepository::IRRepository() : _llvm_context{std::make_shared<llvm::LLVMContext>
 
 void IRRepository::_add_module(const std::string& str) {
   auto module = llvm_utils::module_from_string(str, *_llvm_context);
+  llvm::StripDebugInfo(*module);
 
   // extract functions
   for (const auto& function : *module) {

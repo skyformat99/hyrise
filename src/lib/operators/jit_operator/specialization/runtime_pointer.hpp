@@ -25,6 +25,7 @@ class KnownRuntimePointer : public RuntimePointer {
 
 class ConstantRuntimePointer : public KnownRuntimePointer {
  public:
+  explicit ConstantRuntimePointer(const uint64_t address) : _address{address} {}
   template <typename T>
   explicit ConstantRuntimePointer(const T* ptr) : _address{reinterpret_cast<uint64_t>(ptr)} {}
   template <typename T>

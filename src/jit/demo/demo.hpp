@@ -43,6 +43,11 @@ class ConstantReader : public ValueReader {
   const T _val;
 };
 
+class ContextReader : public ValueReader {
+ public:
+  opossum::JitVariant get_value(int32_t ctx) const final;
+};
+
 class Operator {
  public:
   Operator(const ValueReader::Ptr& left, const ValueReader::Ptr& right);

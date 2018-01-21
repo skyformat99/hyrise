@@ -40,6 +40,8 @@ class JitCompiler {
     return reinterpret_cast<T*>(target_address);
   }
 
+  llvm::TargetMachine& target_machine() const;
+
  private:
   const std::string _mangle(const std::string& name) const;
 

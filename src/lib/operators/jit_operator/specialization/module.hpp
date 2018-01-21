@@ -3,6 +3,7 @@
 #include <stack>
 
 #include <llvm/IR/Module.h>
+#include <llvm/IR/Verifier.h>
 
 #include "ir_repository.hpp"
 #include "jit_compiler.hpp"
@@ -24,14 +25,20 @@ class Module {
   template <typename T>
   std::function<T> compile() {
     const auto function_name = _module->getName().str() + "_";
-    _compile_impl();
+
+    // note: strangely, llvm::verifyModule returns false for valid modules
+    Assert(!llvm::verifyModule(*_module, &llvm::dbgs()), "Module is invalid.");
+
+    _compiler.add_module(std::move(_module));
     return _compiler.find_symbol<T>(function_name);
   }
 
  private:
-  void _compile_impl();
+  bool _specialize();
 
   void _optimize();
+
+  void _external_optimize();
 
   void _replace_loads_with_runtime_values();
 

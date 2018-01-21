@@ -69,7 +69,7 @@ struct Divide : public boost::static_visitor<JitVariant> {
 
 struct Compare : public boost::static_visitor<int32_t> {
   template <typename T, typename U>
-  auto operator()(const T& lhs, const U& rhs) const -> decltype(lhs - rhs) {
+  auto operator()(const T& lhs, const U& rhs) const -> decltype(lhs - rhs, int32_t()) {
     decltype(lhs - rhs) zero = 0;
     return (zero < (lhs - rhs)) - ((lhs - rhs) < zero);
   }

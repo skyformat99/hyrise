@@ -51,6 +51,8 @@ void JitCompiler::remove_module(const JitCompiler::ModuleHandle& handle) {
   error_utils::handle_error(_compile_layer.removeModule(handle));
 }
 
+llvm::TargetMachine& JitCompiler::target_machine() const { return *_target_machine; }
+
 const std::string JitCompiler::_mangle(const std::string& name) const {
   std::string mangled_name;
   llvm::raw_string_ostream mangled_name_stream(mangled_name);
