@@ -8,8 +8,8 @@
 
 namespace opossum {
 
-JitCompiler::JitCompiler(std::shared_ptr<llvm::LLVMContext> context)
-    : _context{std::move(context)},
+JitCompiler::JitCompiler(const std::shared_ptr<llvm::LLVMContext>& context)
+    : _context{context},
       _target_machine{!llvm::InitializeNativeTarget() && !llvm::InitializeNativeTargetAsmPrinter()
                           ? llvm::EngineBuilder().selectTarget()
                           : nullptr},
@@ -23,9 +23,9 @@ JitCompiler::JitCompiler(std::shared_ptr<llvm::LLVMContext> context)
 
 JitCompiler::~JitCompiler() { _cxx_runtime_overrides.runDestructors(); }
 
-JitCompiler::ModuleHandle JitCompiler::add_module(std::shared_ptr<llvm::Module> module) {
+JitCompiler::ModuleHandle JitCompiler::add_module(const std::shared_ptr<llvm::Module>& module) {
   module->setDataLayout(_data_layout);
-  auto resolver = llvm::orc::createLambdaResolver(
+  const auto resolver = llvm::orc::createLambdaResolver(
       [&](const std::string& name) -> llvm::JITSymbol {
         if (auto symbol = _compile_layer.findSymbol(name, true)) {
           return symbol;
@@ -41,7 +41,7 @@ JitCompiler::ModuleHandle JitCompiler::add_module(std::shared_ptr<llvm::Module> 
                                llvm::JITSymbolFlags::Exported);
       });
 
-  auto handle = error_utils::handle_error(_compile_layer.addModule(std::move(module), std::move(resolver)));
+  const auto handle = error_utils::handle_error(_compile_layer.addModule(std::move(module), std::move(resolver)));
   _modules.push_back(handle);
   return handle;
 }
@@ -51,7 +51,7 @@ void JitCompiler::remove_module(const JitCompiler::ModuleHandle& handle) {
   error_utils::handle_error(_compile_layer.removeModule(handle));
 }
 
-std::string JitCompiler::_mangle(const std::string& name) const {
+const std::string JitCompiler::_mangle(const std::string& name) const {
   std::string mangled_name;
   llvm::raw_string_ostream mangled_name_stream(mangled_name);
   llvm::Mangler::getNameWithPrefix(mangled_name_stream, name, _data_layout);

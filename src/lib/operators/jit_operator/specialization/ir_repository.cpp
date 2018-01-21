@@ -21,7 +21,7 @@ const llvm::Function* IRRepository::get_function(const std::string& name) const 
 }
 
 const llvm::Function* IRRepository::get_vtable_entry(const std::string& class_name, const size_t index) const {
-  auto vtable_name = vtable_prefix + class_name;
+  const auto vtable_name = vtable_prefix + class_name;
   if (_vtables.count(vtable_name) && _vtables.at(vtable_name).size() > index) {
     return _vtables.at(vtable_name)[index];
   }
@@ -50,21 +50,21 @@ void IRRepository::_add_module(const std::string& str) {
   auto module = llvm_utils::module_from_string(str, *_llvm_context);
 
   // extract functions
-  for (auto& function : *module) {
-    auto function_name = function.getName().str();
+  for (const auto& function : *module) {
+    const auto function_name = function.getName().str();
     if (!function.isDeclaration()) {
       _functions[function_name] = &function;
     }
   }
 
   // extract vtables
-  for (auto& global : module->globals()) {
+  for (const auto& global : module->globals()) {
     if (boost::starts_with(global.getName().str(), vtable_prefix)) {
       if (!global.hasInitializer()) {
         continue;
       }
-      if (auto const_array = llvm::dyn_cast<llvm::ConstantArray>(global.getInitializer()->getOperand(0))) {
-        std::vector<llvm::Function*> vtable;
+      if (const auto const_array = llvm::dyn_cast<llvm::ConstantArray>(global.getInitializer()->getOperand(0))) {
+        std::vector<const llvm::Function*> vtable;
         for (uint32_t index = 2; index < const_array->getNumOperands(); ++index) {
           vtable.push_back(_functions[const_array->getOperand(index)->getOperand(0)->getName().str()]);
         }

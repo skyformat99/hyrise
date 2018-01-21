@@ -58,9 +58,9 @@ class IRRepository : private Noncopyable {
   void _dump(std::ostream& os) const;
 
   std::shared_ptr<llvm::LLVMContext> _llvm_context;
-  std::vector<std::unique_ptr<llvm::Module>> _modules;
-  std::unordered_map<std::string, llvm::Function*> _functions;
-  std::unordered_map<std::string, std::vector<llvm::Function*>> _vtables;
+  std::vector<std::unique_ptr<const llvm::Module>> _modules;
+  std::unordered_map<std::string, const llvm::Function*> _functions;
+  std::unordered_map<std::string, std::vector<const llvm::Function*>> _vtables;
 
   const std::string vtable_prefix = "_ZTV";
 };

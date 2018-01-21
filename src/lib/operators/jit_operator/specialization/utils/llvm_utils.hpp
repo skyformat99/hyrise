@@ -46,7 +46,7 @@ struct llvm_utils {
 
   static std::unique_ptr<llvm::Module> module_from_string(const std::string& str, llvm::LLVMContext& context) {
     llvm::SMDiagnostic error;
-    auto buffer = llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(str));
+    const auto buffer = llvm::MemoryBuffer::getMemBuffer(llvm::StringRef(str));
     auto module = llvm::parseIR(*buffer, error, context);
     error_utils::handle_error(error);
     return module;

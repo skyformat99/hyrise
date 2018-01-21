@@ -197,7 +197,7 @@ llvm::GlobalVariable* Module::_clone_global(const llvm::GlobalVariable& global) 
   return cloned_global;
 }
 
-RuntimePointer::Ptr& Module::_get_runtime_value(const llvm::Value* value) {
+const RuntimePointer::Ptr& Module::_get_runtime_value(const llvm::Value* value) {
   // try serving from cache
   if (_runtime_values.count(value)) {
     return _runtime_values[value];

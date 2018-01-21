@@ -23,7 +23,7 @@ class Module {
 
   template <typename T>
   std::function<T> compile() {
-    auto function_name = _module->getName().str() + "_";
+    const auto function_name = _module->getName().str() + "_";
     _compile_impl();
     return _compiler.find_symbol<T>(function_name);
   }
@@ -41,33 +41,13 @@ class Module {
 
   llvm::GlobalVariable* _clone_global(const llvm::GlobalVariable& global);
 
-  RuntimePointer::Ptr& _get_runtime_value(const llvm::Value* value);
+  const RuntimePointer::Ptr& _get_runtime_value(const llvm::Value* value);
 
   template <typename T, typename U>
   void _visit(U& function, std::function<void(T&)> fn);
 
   template <typename T>
   void _visit(std::function<void(T&)> fn);
-
-  // void _process_function(llvm::Function* function, const std::vector<RuntimeValue::Ptr>& runtime_arguments);
-
-  // llvm::Function* _clone_from_repo(llvm::Function* function);
-
-  // llvm::Function* _get_or_create_decleration(llvm::Function* function);
-
-  // template <typename T>
-  // void _replace_virtual_calls(llvm::Function* function);
-
-  // void _replace_loads_with_runtime_values(llvm::Function* function);
-
-  // template <typename T>
-  // void _handle_direct_calls(llvm::Function* function);
-
-  // template <typename T>
-  // void _inline_functions();
-
-  // template <typename T, typename C>
-  // void _for_each(const C& container, std::function<void(T* inst)> func);
 
   const IRRepository& _repository;
   std::unique_ptr<llvm::Module> _module;

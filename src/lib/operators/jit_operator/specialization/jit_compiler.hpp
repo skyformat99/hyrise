@@ -12,6 +12,7 @@
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Target/TargetMachine.h>
+#include <utils/assert.hpp>
 
 #include "utils/error_utils.hpp"
 
@@ -24,28 +25,23 @@ class JitCompiler {
   using ModuleHandle = CompileLayer::ModuleHandleT;
 
  public:
-  explicit JitCompiler(std::shared_ptr<llvm::LLVMContext> context);
+  explicit JitCompiler(const std::shared_ptr<llvm::LLVMContext>& context);
   ~JitCompiler();
 
-  ModuleHandle add_module(std::shared_ptr<llvm::Module> module);
+  ModuleHandle add_module(const std::shared_ptr<llvm::Module>& module);
 
   void remove_module(const ModuleHandle& handle);
 
   template <typename T>
   std::function<T> find_symbol(const std::string& name) {
-    llvm::JITTargetAddress target_address =
-        error_utils::handle_error(_compile_layer.findSymbol(_mangle(name), true).getAddress());
+    const auto target_address = error_utils::handle_error(_compile_layer.findSymbol(_mangle(name), true).getAddress());
 
-    if (!target_address) {
-      llvm::errs() << "Symbol " << name << " could not be found.\n";
-      llvm_unreachable("");
-    }
-
+    Assert(target_address, "symbol " + name + " could not be found");
     return reinterpret_cast<T*>(target_address);
   }
 
  private:
-  std::string _mangle(const std::string& name) const;
+  const std::string _mangle(const std::string& name) const;
 
   const std::shared_ptr<llvm::LLVMContext> _context;
   const std::unique_ptr<llvm::TargetMachine> _target_machine;
