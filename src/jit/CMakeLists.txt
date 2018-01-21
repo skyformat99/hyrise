@@ -22,6 +22,8 @@ set(JIT_OPERATOR_FILES
     ../lib/operators/jit_operator/specialization/utils/llvm_utils.hpp)
 
 set(FILES_TO_EMBED
+    ../lib/operators/jit_operator/value/types.cpp
+    ../lib/operators/jit_operator/value/types.hpp
     demo/demo.cpp
     demo/demo.hpp)
 
@@ -29,3 +31,6 @@ embed_files(EMBEDDED_FILES ${FILES_TO_EMBED})
 
 add_executable(jitSpecialization jit_specialization.cpp ${JIT_OPERATOR_FILES} ${FILES_TO_EMBED} ${EMBEDDED_FILES})
 target_link_libraries(jitSpecialization boost_filesystem boost_system ${LLVM_LIB})
+
+add_executable(jitVariant jit_variant.cpp ${JIT_OPERATOR_FILES} ${FILES_TO_EMBED} ${EMBEDDED_FILES})
+target_link_libraries(jitVariant boost_filesystem boost_system ${LLVM_LIB})
