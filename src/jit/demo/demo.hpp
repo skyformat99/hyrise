@@ -48,13 +48,32 @@ class ContextReader : public ValueReader {
   opossum::JitVariant get_value(int32_t ctx) const final;
 };
 
-class Operator {
+class NullReader : public ValueReader {
  public:
-  Operator(const ValueReader::Ptr& left, const ValueReader::Ptr& right);
+  opossum::JitVariant get_value(int32_t ctx) const final;
+};
+
+class ModuloReader : public ValueReader {
+ public:
+  opossum::JitVariant get_value(int32_t ctx) const final;
+};
+
+class CompareOperator {
+ public:
+  CompareOperator(const ValueReader::Ptr& left, const ValueReader::Ptr& right);
   bool execute(int32_t ctx) const;
 
  private:
   const ValueReader::Ptr _left, _right;
+};
+
+class SumOperator {
+ public:
+  void add_value(const ValueReader::Ptr& value);
+  double execute(int32_t ctx) const;
+
+ private:
+  std::vector<ValueReader::Ptr> _values;
 };
 
 }  // namespace demo_2

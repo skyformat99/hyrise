@@ -27,6 +27,7 @@ void Module::specialize(const RuntimePointer::Ptr& runtime_this) {
   // add runtime value for this pointer
   _runtime_values[&*_root_function->arg_begin()] = runtime_this;
 
+  // TODO: make this flexible
   _specialize();
   _optimize();
   _specialize();
@@ -44,8 +45,8 @@ bool Module::_specialize() {
     if (call_site.isIndirectCall()) {
       // attempt to resolve virtual calls
       const auto called_value = call_site.getCalledValue();
-      const auto called_runtime_value = std::static_pointer_cast<const KnownRuntimePointer>(_get_runtime_value(called_value));
-      if (called_runtime_value->is_known()) {
+      const auto called_runtime_value = std::dynamic_pointer_cast<const KnownRuntimePointer>(_get_runtime_value(called_value));
+      if (called_runtime_value && called_runtime_value->is_known()) {
         const auto vtable_index = called_runtime_value->up().total_offset() / _module->getDataLayout().getPointerSize();
         const auto instance = reinterpret_cast<RTTIHelper*>(called_runtime_value->up().up().base().address());
         const auto class_name = typeid(*instance).name();
@@ -86,6 +87,12 @@ bool Module::_specialize() {
 }
 
 void Module::_optimize() {
+  _runtime_values.clear();
+  _visit<llvm::BranchInst>([&](llvm::BranchInst& branch_inst) {
+    // TODO: properly identify unrolling metadata
+    branch_inst.setMetadata(18, nullptr);
+  });
+
   const auto before_path = llvm_utils::temp_file("ll");
   const auto after_path = llvm_utils::temp_file("ll");
   const auto remarks_path = llvm_utils::temp_file("yml");
@@ -94,8 +101,6 @@ void Module::_optimize() {
             << "  before:  " << before_path.string() << std::endl
             << "  after:   " << after_path.string() << std::endl
             << "  remarks: " << remarks_path.string() << std::endl;
-
-  // TODO: verifyModule here?
 
   llvm_utils::module_to_file(before_path, *_module);
 
@@ -114,10 +119,7 @@ void Module::_optimize() {
   pass_manager.add(llvm::createTargetTransformInfoWrapperPass(_compiler.target_machine().getTargetIRAnalysis()));
   function_pass_manager.add(llvm::createTargetTransformInfoWrapperPass(_compiler.target_machine().getTargetIRAnalysis()));
 
-  // auto &LTM = static_cast<llvm::LLVMTargetMachine &>(_compiler.target_machine());
-  // llvm::Pass *TPC = LTM.createPassConfig(pass_manager);
-  // pass_manager.add(TPC);
-
+  // TODO: build a custom (=faster) optimization pipeline
   llvm::PassManagerBuilder pass_builder;
   pass_builder.OptLevel = 3;
   pass_builder.SizeLevel = 0;
@@ -131,6 +133,8 @@ void Module::_optimize() {
   pass_builder.populateFunctionPassManager(function_pass_manager);
   pass_builder.populateModulePassManager(pass_manager);
 
+  function_pass_manager.add(llvm::createLoopUnrollPass(3, 10000000, 0, 0, 0, 0));
+
   function_pass_manager.doInitialization();
   function_pass_manager.run(*_root_function);
   function_pass_manager.doFinalization();
@@ -138,26 +142,6 @@ void Module::_optimize() {
 
   llvm_utils::module_to_file(after_path, *_module);
   _repository.llvm_context()->setDiagnosticsOutputFile(nullptr);
-}
-
-void Module::_external_optimize() {
-  const auto before_path = llvm_utils::temp_file("ll");
-  const auto after_path = llvm_utils::temp_file("ll");
-  const auto remarks_path = llvm_utils::temp_file("yml");
-
-  std::cout << "Running final optimization" << std::endl
-            << "  before:  " << before_path.string() << std::endl
-            << "  after:   " << after_path.string() << std::endl
-            << "  remarks: " << remarks_path.string() << std::endl;
-
-  llvm_utils::module_to_file(before_path, *_module);
-
-  std::ostringstream command;
-  command << "opt-5.0 -O3 -S -o " << after_path << " " << before_path << " -pass-remarks-output=" << remarks_path;
-  system(command.str().c_str());
-
-  auto optimized_module = llvm_utils::module_from_file(after_path, _module->getContext());
-  _compiler.add_module(std::move(optimized_module));
 }
 
 void Module::_replace_loads_with_runtime_values() {
